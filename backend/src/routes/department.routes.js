@@ -1,51 +1,50 @@
-import { Router } from 'express'
-import { body, param } from 'express-validator'
-import {
+const { Router } = require("express");
+const { body, param } = require("express-validator");
+const {
   getDepartments,
   getDepartmentById,
   createDepartment,
   updateDepartment,
-} from '../controllers/departmentController.js'
-import { authenticate } from '../middleware/authenticate.js'
-import { authorizeRole } from '../middleware/authorize.js'
-import { validateRequest } from '../middleware/validateRequest.js'
+} = require("../controllers/departmentController");
+const { authenticate } = require("../middleware/authenticate");
+const { authorizeRole } = require("../middleware/authorize");
+const { validateRequest } = require("../middleware/validateRequest");
 
-const router = Router()
+const router = Router();
 
-router.use(authenticate)
+router.use(authenticate);
 
-router.get('/', authorizeRole('Admin'), getDepartments)
+router.get("/", authorizeRole("Admin"), getDepartments);
 
 router.get(
-  '/:id',
-  [authorizeRole('Admin', 'HOD'), param('id').isMongoId(), validateRequest],
+  "/:id",
+  [authorizeRole("Admin", "HOD"), param("id").isMongoId(), validateRequest],
   getDepartmentById
-)
+);
 
 router.post(
-  '/',
+  "/",
   [
-    authorizeRole('Admin'),
-    body('name').notEmpty().withMessage('Name is required.'),
-    body('code').optional().isString(),
-    body('hod').optional({ nullable: true }).isMongoId(),
+    authorizeRole("Admin"),
+    body("name").notEmpty().withMessage("Name is required."),
+    body("code").optional().isString(),
+    body("hod").optional({ nullable: true }).isMongoId(),
     validateRequest,
   ],
   createDepartment
-)
+);
 
 router.put(
-  '/:id',
+  "/:id",
   [
-    authorizeRole('Admin'),
-    param('id').isMongoId(),
-    body('name').optional().notEmpty(),
-    body('code').optional().isString(),
-    body('hod').optional({ nullable: true }).isMongoId(),
+    authorizeRole("Admin"),
+    param("id").isMongoId(),
+    body("name").optional().notEmpty(),
+    body("code").optional().isString(),
+    body("hod").optional({ nullable: true }).isMongoId(),
     validateRequest,
   ],
   updateDepartment
-)
+);
 
-export default router
-
+module.exports = router;
