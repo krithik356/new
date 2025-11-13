@@ -1,12 +1,12 @@
-import mongoose from 'mongoose'
+const mongoose = require("mongoose");
 
-const { Schema } = mongoose
+const { Schema } = mongoose;
 
 const ContributionSchema = new Schema(
   {
     department: {
       type: Schema.Types.ObjectId,
-      ref: 'Department',
+      ref: "Department",
       required: true,
     },
     academy: {
@@ -29,7 +29,7 @@ const ContributionSchema = new Schema(
     },
     submittedBy: {
       type: Schema.Types.ObjectId,
-      ref: 'User',
+      ref: "User",
       required: true,
     },
     remarks: {
@@ -42,7 +42,7 @@ const ContributionSchema = new Schema(
     },
     cycle: {
       type: String,
-      default: 'default',
+      default: "default",
       index: true,
       trim: true,
     },
@@ -50,21 +50,22 @@ const ContributionSchema = new Schema(
   {
     timestamps: true,
   }
-)
+);
 
-ContributionSchema.index({ department: 1, cycle: 1 }, { unique: true })
+ContributionSchema.index({ department: 1, cycle: 1 }, { unique: true });
 
-ContributionSchema.virtual('total').get(function total() {
-  return (this.academy ?? 0) + (this.intensive ?? 0) + (this.niat ?? 0)
-})
+ContributionSchema.virtual("total").get(function total() {
+  return (this.academy || 0) + (this.intensive || 0) + (this.niat || 0);
+});
 
-ContributionSchema.pre('validate', function enforceTotals(next) {
-  const sum = (this.academy ?? 0) + (this.intensive ?? 0) + (this.niat ?? 0)
+ContributionSchema.pre("validate", function enforceTotals(next) {
+  const sum = (this.academy || 0) + (this.intensive || 0) + (this.niat || 0);
   if (Math.abs(sum - 100) > 1e-6) {
-    return next(new Error('Contribution allocation must total 100.'))
+    return next(new Error("Contribution allocation must total 100."));
   }
-  return next()
-})
+  return next();
+});
 
-export const Contribution = mongoose.model('Contribution', ContributionSchema)
+const Contribution = mongoose.model("Contribution", ContributionSchema);
 
+module.exports = { Contribution };

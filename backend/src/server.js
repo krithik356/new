@@ -1,103 +1,130 @@
-import 'dotenv/config'
-import express from 'express'
-import cors from 'cors'
-import helmet from 'helmet'
-import morgan from 'morgan'
+require("dotenv").config();
+const express = require("express");
+const cors = require("cors");
+const helmet = require("helmet");
+const morgan = require("morgan");
 
-import authRoutes from './routes/auth.routes.js'
-import departmentRoutes from './routes/department.routes.js'
-import employeeRoutes from './routes/employee.routes.js'
-import contributionRoutes from './routes/contribution.routes.js'
-import exportRoutes from './routes/export.routes.js'
+const authRoutes = require("./routes/auth.routes");
+const departmentRoutes = require("./routes/department.routes");
+const employeeRoutes = require("./routes/employee.routes");
+const contributionRoutes = require("./routes/contribution.routes");
+const exportRoutes = require("./routes/export.routes");
 
-import { connectDB, disconnectDB } from './config/db.js'
-import { notFound, errorHandler } from './middleware/errorHandler.js'
+const { connectDB, disconnectDB } = require("./config/db");
+const { notFound, errorHandler } = require("./middleware/errorHandler");
 
-const app = express()
-const PORT = process.env.PORT ?? 5000
+const app = express();
+const PORT = process.env.PORT || 5000;
 
-const corsOptions = {
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}
+// CORS Configuration
+const allowedOrigins = [
+  "http://localhost:5173", // Vite dev server
+  "http://localhost:3000", // Alternative frontend port
+  process.env.CORS_ORIGIN, // Environment variable override
+].filter(Boolean);
 
-app.use(cors(corsOptions))
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*')
-  res.header(
-    'Access-Control-Allow-Methods',
-    'GET,POST,PUT,PATCH,DELETE,OPTIONS'
-  )
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, Postman, etc.)
+      if (!origin) return callback(null, true);
 
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(204)
-  }
+      // Allow if origin is in allowed list
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
 
-  return next()
-})
+      // For development, allow all origins
+      if (process.env.NODE_ENV !== "production") {
+        return callback(null, true);
+      }
 
-// app.use(cors());
-// app.options('*', cors()); // handle preflight
-
-app.use(helmet())
-app.use(express.json())
-app.use(express.urlencoded({ extended: false }))
-
-if (process.env.NODE_ENV !== 'test') {
-  app.use(
-    morgan('dev', {
-      skip: () => process.env.NODE_ENV === 'production',
-    })
-  )
-}
-
-app.get('/api/status', (req, res) => {
-  res.json({
-    success: true,
-    data: {
-      service: 'Employee Contribution Automation API',
-      timestamp: new Date().toISOString(),
+      // Reject in production if not in allowed list
+      callback(new Error("Not allowed by CORS"));
     },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    exposedHeaders: ["Authorization"],
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
   })
-})
+);
 
-app.use('/api/auth', authRoutes)
-app.use('/api/departments', departmentRoutes)
-app.use('/api/employees', employeeRoutes)
-app.use('/api/contributions', contributionRoutes)
-app.use('/api/contributions/export', exportRoutes)
+// Security middleware
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    crossOriginEmbedderPolicy: false,
+  })
+);
 
-// app.use(notFound)
-// app.use(errorHandler)
+// Body parsing middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 
+// Logging middleware
+if (process.env.NODE_ENV !== "test") {
+  app.use(
+    morgan("dev", {
+      skip: () => process.env.NODE_ENV === "production",
+    })
+  );
+}
+
+// Health check route
+app.get("/api/health", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "API is running",
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// API Routes
+app.use("/api/auth", authRoutes);
+app.use("/api/departments", departmentRoutes);
+app.use("/api/employees", employeeRoutes);
+app.use("/api/contributions", contributionRoutes);
+app.use("/api/contributions/export", exportRoutes);
+
+// 404 handler - must be after all routes
+app.use(notFound);
+
+// Error handling middleware - must be last
+app.use(errorHandler);
+
+// Start server with database connection
 async function startServer() {
   try {
-    await connectDB()
+    await connectDB();
 
     const server = app.listen(PORT, () => {
-      console.log(`Server listening on http://localhost:${PORT}`)
-    })
+      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`📍 Health check: http://localhost:${PORT}/api/health`);
+    });
 
+    // Graceful shutdown
     const shutdown = async () => {
+      console.log("\n🛑 Shutting down gracefully...");
       server.close(async () => {
-        await disconnectDB()
-        process.exit(0)
-      })
-    }
+        await disconnectDB();
+        console.log("✅ Server closed");
+        process.exit(0);
+      });
+    };
 
-    process.on('SIGINT', shutdown)
-    process.on('SIGTERM', shutdown)
+    process.on("SIGINT", shutdown);
+    process.on("SIGTERM", shutdown);
   } catch (error) {
-    console.error('Failed to start server', error)
-    process.exit(1)
+    console.error("❌ Failed to start server:", error);
+    process.exit(1);
   }
 }
 
-if (process.env.NODE_ENV !== 'test') {
-  startServer()
+// Start server if not in test environment
+if (process.env.NODE_ENV !== "test") {
+  startServer();
 }
 
-export { startServer }
-export default app
+module.exports = { app, startServer };

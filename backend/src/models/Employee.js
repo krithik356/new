@@ -1,6 +1,6 @@
-import mongoose from 'mongoose'
+const mongoose = require("mongoose");
 
-const { Schema } = mongoose
+const { Schema } = mongoose;
 
 const EmployeeSchema = new Schema(
   {
@@ -17,7 +17,7 @@ const EmployeeSchema = new Schema(
     },
     department: {
       type: Schema.Types.ObjectId,
-      ref: 'Department',
+      ref: "Department",
       required: true,
     },
     designation: {
@@ -33,9 +33,10 @@ const EmployeeSchema = new Schema(
   {
     timestamps: true,
   }
-)
+);
 
-EmployeeSchema.index({ department: 1 })
+EmployeeSchema.index({ department: 1 });
 
-export const Employee = mongoose.model('Employee', EmployeeSchema)
+const Employee = mongoose.model("Employee", EmployeeSchema);
 
+module.exports = { Employee };

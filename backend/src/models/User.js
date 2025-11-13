@@ -1,9 +1,9 @@
-import mongoose from 'mongoose'
-import bcrypt from 'bcrypt'
+const mongoose = require("mongoose");
+const bcrypt = require("bcrypt");
 
-const { Schema } = mongoose
+const { Schema } = mongoose;
 
-const roles = ['Admin', 'HOD']
+const roles = ["Admin", "HOD"];
 
 const UserSchema = new Schema(
   {
@@ -30,16 +30,16 @@ const UserSchema = new Schema(
     },
     department: {
       type: Schema.Types.ObjectId,
-      ref: 'Department',
+      ref: "Department",
       default: null,
       validate: {
         validator(value) {
-          if (this.role === 'HOD') {
-            return Boolean(value)
+          if (this.role === "HOD") {
+            return Boolean(value);
           }
-          return true
+          return true;
         },
-        message: 'HOD users must be linked to a department.',
+        message: "HOD users must be linked to a department.",
       },
     },
   },
@@ -47,17 +47,18 @@ const UserSchema = new Schema(
     timestamps: true,
     toJSON: {
       transform(doc, ret) {
-        delete ret.passwordHash
-        delete ret.__v
-        return ret
+        delete ret.passwordHash;
+        delete ret.__v;
+        return ret;
       },
     },
   }
-)
+);
 
 UserSchema.methods.comparePassword = function comparePassword(password) {
-  return bcrypt.compare(password, this.passwordHash)
-}
+  return bcrypt.compare(password, this.passwordHash);
+};
 
-export const User = mongoose.model('User', UserSchema)
+const User = mongoose.model("User", UserSchema);
 
+module.exports = { User };

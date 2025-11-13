@@ -1,15 +1,16 @@
-import { validationResult } from 'express-validator'
+const { validationResult } = require("express-validator");
 
-export function validateRequest(req, res, next) {
-  const errors = validationResult(req)
+function validateRequest(req, res, next) {
+  const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({
       success: false,
-      message: 'Validation failed.',
+      message: "Validation failed.",
       errors: errors.array(),
-    })
+    });
   }
 
-  return next()
+  return next();
 }
 
+module.exports = { validateRequest };

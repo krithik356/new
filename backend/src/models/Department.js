@@ -1,6 +1,6 @@
-import mongoose from 'mongoose'
+const mongoose = require("mongoose");
 
-const { Schema } = mongoose
+const { Schema } = mongoose;
 
 const DepartmentSchema = new Schema(
   {
@@ -16,7 +16,7 @@ const DepartmentSchema = new Schema(
     },
     hod: {
       type: Schema.Types.ObjectId,
-      ref: 'User',
+      ref: "User",
       default: null,
     },
     employeesCount: {
@@ -28,7 +28,8 @@ const DepartmentSchema = new Schema(
   {
     timestamps: true,
   }
-)
+);
 
-export const Department = mongoose.model('Department', DepartmentSchema)
+const Department = mongoose.model("Department", DepartmentSchema);
 
+module.exports = { Department };

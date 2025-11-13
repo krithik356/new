@@ -1,75 +1,74 @@
-import { Router } from 'express'
-import { body, param, query } from 'express-validator'
-import {
+const { Router } = require("express");
+const { body, param, query } = require("express-validator");
+const {
   listContributions,
   getContributionByDepartment,
   createContribution,
   updateContribution,
   deleteContribution,
-} from '../controllers/contributionController.js'
-import { authenticate } from '../middleware/authenticate.js'
-import { authorizeRole } from '../middleware/authorize.js'
-import { validateRequest } from '../middleware/validateRequest.js'
+} = require("../controllers/contributionController");
+const { authenticate } = require("../middleware/authenticate");
+const { authorizeRole } = require("../middleware/authorize");
+const { validateRequest } = require("../middleware/validateRequest");
 
-const router = Router()
+const router = Router();
 
-router.use(authenticate)
+router.use(authenticate);
 
 router.get(
-  '/all',
+  "/all",
   [
-    authorizeRole('Admin'),
-    query('cycle').optional().isString(),
+    authorizeRole("Admin"),
+    query("cycle").optional().isString(),
     validateRequest,
   ],
   listContributions
-)
+);
 
 router.get(
-  '/department/:departmentId',
+  "/department/:departmentId",
   [
-    authorizeRole('Admin', 'HOD'),
-    param('departmentId').isMongoId(),
+    authorizeRole("Admin", "HOD"),
+    param("departmentId").isMongoId(),
     validateRequest,
   ],
   getContributionByDepartment
-)
+);
 
 router.post(
-  '/',
+  "/",
   [
-    authorizeRole('HOD'),
-    body('department').isMongoId().withMessage('Department is required.'),
-    body('academy').isNumeric().withMessage('Academy must be numeric.'),
-    body('intensive').isNumeric().withMessage('Intensive must be numeric.'),
-    body('niat').isNumeric().withMessage('NIAT must be numeric.'),
-    body('remarks').optional().isString(),
-    body('cycle').optional().isString(),
+    authorizeRole("HOD"),
+    body("department").isMongoId().withMessage("Department is required."),
+    body("academy").isNumeric().withMessage("Academy must be numeric."),
+    body("intensive").isNumeric().withMessage("Intensive must be numeric."),
+    body("niat").isNumeric().withMessage("NIAT must be numeric."),
+    body("remarks").optional().isString(),
+    body("cycle").optional().isString(),
     validateRequest,
   ],
   createContribution
-)
+);
 
 router.put(
-  '/:id',
+  "/:id",
   [
-    authorizeRole('Admin', 'HOD'),
-    param('id').isMongoId(),
-    body('academy').optional().isNumeric(),
-    body('intensive').optional().isNumeric(),
-    body('niat').optional().isNumeric(),
-    body('remarks').optional().isString(),
-    body('cycle').optional().isString(),
+    authorizeRole("Admin", "HOD"),
+    param("id").isMongoId(),
+    body("academy").optional().isNumeric(),
+    body("intensive").optional().isNumeric(),
+    body("niat").optional().isNumeric(),
+    body("remarks").optional().isString(),
+    body("cycle").optional().isString(),
     validateRequest,
   ],
   updateContribution
-)
+);
 
 router.delete(
-  '/:id',
-  [authorizeRole('Admin'), param('id').isMongoId(), validateRequest],
+  "/:id",
+  [authorizeRole("Admin"), param("id").isMongoId(), validateRequest],
   deleteContribution
-)
+);
 
-export default router
-
+module.exports = router;
