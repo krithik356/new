@@ -6,6 +6,8 @@
       "use": "@vercel/node"
     }
   ],
+  "installCommand": "cd backend && npm install",
+  "buildCommand": "cd backend && npm run build",
   "routes": [
     {
       "src": "/(.*)",
