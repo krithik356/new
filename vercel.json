@@ -1,7 +1,7 @@
 {
   "version": 2,
-  "installCommand": "npm install --prefix backend",
-  "buildCommand": "npm run build --prefix backend",
+  "installCommand": "bash -c \"if [ -f backend/package.json ]; then npm install --prefix backend; else npm install; fi\"",
+  "buildCommand": "bash -c \"if [ -f backend/package.json ]; then npm run build --prefix backend; else npm run build; fi\"",
   "builds": [
     {
       "src": "backend/api/index.js",
