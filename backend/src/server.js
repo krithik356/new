@@ -21,11 +21,8 @@ const isServerless = Boolean(process.env.VERCEL);
 app.set("etag", false);
 
 // CORS Configuration
-const allowedOrigins = [
-  "http://localhost:5173", // Vite dev server
-  "http://localhost:3000", // Alternative frontend port
-  process.env.CORS_ORIGIN, // Environment variable override
-].filter(Boolean);
+const allowedOrigins = ["*", process.env.CORS_ORIGIN].filter(Boolean);
+
 
 app.use(
   cors({
