@@ -15,6 +15,7 @@ const { notFound, errorHandler } = require("./middleware/errorHandler");
 
 const app = express();
 const PORT = process.env.PORT || 5001;
+const isServerless = Boolean(process.env.VERCEL);
 
 // Disable ETag to prevent 304 responses
 app.set("etag", false);
@@ -53,7 +54,18 @@ app.use(
     optionsSuccessStatus: 204,
   })
 );
+// Health check route
+app.get("/api/health", (req, res) => {
+  res.status(200).json({ success: true, message: "API is running", timestamp: new Date().toISOString() });
+});
 
+app.get("/", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Employee Contribution API",
+    docs: "/api/health",
+  });
+});
 // Security middleware
 app.use(
   helmet({
@@ -86,14 +98,7 @@ if (process.env.NODE_ENV !== "test") {
   );
 }
 
-// Health check route
-app.get("/api/health", (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: "API is running",
-    timestamp: new Date().toISOString(),
-  });
-});
+
 
 // API Routes
 app.use("/api/auth", authRoutes);
@@ -136,8 +141,8 @@ async function startServer() {
   }
 }
 
-// Start server if not in test environment
-if (process.env.NODE_ENV !== "test") {
+// Start server if not in test environment or serverless deployment
+if (process.env.NODE_ENV !== "test" && !isServerless) {
   startServer();
 }
 
