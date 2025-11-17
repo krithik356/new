@@ -8,7 +8,8 @@
     "start": "node src/server.js",
     "seed": "node src/seed.js",
     "create-user": "node scripts/createUser.js",
-    "assign-department": "node scripts/assignDepartment.js"
+    "assign-department": "node scripts/assignDepartment.js",
+     "build": "echo 'Backend build complete'"
   },
   "keywords": ["api", "express", "mongodb"],
   "author": "",
