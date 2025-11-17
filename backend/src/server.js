@@ -9,7 +9,7 @@ const departmentRoutes = require("./routes/department.routes");
 const employeeRoutes = require("./routes/employee.routes");
 const contributionRoutes = require("./routes/contribution.routes");
 const exportRoutes = require("./routes/export.routes");
-///changes made here
+
 const { connectDB, disconnectDB } = require("./config/db");
 const { notFound, errorHandler } = require("./middleware/errorHandler");
 
@@ -17,45 +17,31 @@ const app = express();
 const PORT = process.env.PORT || 5001;
 const isServerless = Boolean(process.env.VERCEL);
 
-// Disable ETag to prevent 304 responses
+// Disable ETag
 app.set("etag", false);
 
-// CORS Configuration
-const allowedOrigins = ["*", process.env.CORS_ORIGIN].filter(Boolean);
-
-
+// ✅ CORS — Allow ALL origins
 app.use(
   cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps, Postman, etc.)
-      if (!origin) return callback(null, true);
-
-      // Allow if origin is in allowed list
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-
-      // For development, allow all origins
-      if (process.env.NODE_ENV !== "production") {
-        return callback(null, true);
-      }
-
-      // Reject in production if not in allowed list
-      callback(new Error("Not allowed by CORS"));
-    },
+    origin: (origin, callback) => callback(null, true), // allow everything
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     exposedHeaders: ["Authorization"],
-    preflightContinue: false,
     optionsSuccessStatus: 204,
   })
 );
-// Health check route
+
+// Health check
 app.get("/api/health", (req, res) => {
-  res.status(200).json({ success: true, message: "API is running", timestamp: new Date().toISOString() });
+  res.status(200).json({
+    success: true,
+    message: "API is running",
+    timestamp: new Date().toISOString(),
+  });
 });
 
+// Base route
 app.get("/", (req, res) => {
   res.status(200).json({
     success: true,
@@ -63,6 +49,7 @@ app.get("/", (req, res) => {
     docs: "/api/health",
   });
 });
+
 // Security middleware
 app.use(
   helmet({
@@ -71,22 +58,21 @@ app.use(
   })
 );
 
-// Disable caching for API responses (ensure fresh data)
+// Disable caching for API responses
 app.use((req, res, next) => {
-  // Disable caching for all API routes
   res.set({
     "Cache-Control": "no-store, no-cache, must-revalidate, private",
-    "Pragma": "no-cache",
-    "Expires": "0",
+    Pragma: "no-cache",
+    Expires: "0",
   });
   next();
 });
 
-// Body parsing middleware
+// Body parsing
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Logging middleware
+// Logging
 if (process.env.NODE_ENV !== "test") {
   app.use(
     morgan("dev", {
@@ -95,8 +81,6 @@ if (process.env.NODE_ENV !== "test") {
   );
 }
 
-
-
 // API Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/departments", departmentRoutes);
@@ -104,13 +88,13 @@ app.use("/api/employees", employeeRoutes);
 app.use("/api/contributions", contributionRoutes);
 app.use("/api/contributions/export", exportRoutes);
 
-// 404 handler - must be after all routes
+// 404 handler
 app.use(notFound);
 
-// Error handling middleware - must be last
+// Error handler
 app.use(errorHandler);
 
-// Start server with database connection
+// Start server
 async function startServer() {
   try {
     await connectDB();
@@ -138,7 +122,7 @@ async function startServer() {
   }
 }
 
-// Start server if not in test environment or serverless deployment
+// Run server only when not serverless
 if (process.env.NODE_ENV !== "test" && !isServerless) {
   startServer();
 }
