@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 
-import { login as loginRequest } from '../services/auth.js'
+import { login as loginRequest, signup as signupRequest } from '../services/auth.js'
 
 const STORAGE_KEY = 'auth'
 
@@ -67,6 +67,24 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
+  const signUp = useCallback(async ({ name, email, password }) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const result = await signupRequest({ name, email, password })
+      setAuth({
+        token: result.token,
+        user: result.user,
+      })
+      return result
+    } catch (err) {
+      setError(err?.message ?? 'Unable to sign up.')
+      throw err
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   const signOut = useCallback(() => {
     setAuth(null)
     setError(null)
@@ -93,13 +111,14 @@ export function AuthProvider({ children }) {
       user: auth?.user ?? null,
       isAuthenticated: Boolean(auth?.token),
       signIn,
+      signUp,
       signOut,
       loading,
       error,
       clearError,
       updateUser,
     }),
-    [auth, signIn, signOut, loading, error, updateUser, clearError]
+    [auth, signIn, signUp, signOut, loading, error, updateUser, clearError]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

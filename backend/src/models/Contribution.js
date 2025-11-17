@@ -9,6 +9,11 @@ const ContributionSchema = new Schema(
       ref: "Department",
       required: true,
     },
+    employee: {
+      type: Schema.Types.ObjectId,
+      ref: "Employee",
+      default: null,
+    },
     academy: {
       type: Number,
       required: true,
@@ -52,7 +57,25 @@ const ContributionSchema = new Schema(
   }
 );
 
-ContributionSchema.index({ department: 1, cycle: 1 }, { unique: true });
+// Unique index for department-level contributions (one per department per cycle)
+ContributionSchema.index(
+  { department: 1, cycle: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { employee: null },
+    name: "department_cycle_unique",
+  }
+);
+
+// Unique index for employee-level contributions (one per employee per cycle)
+ContributionSchema.index(
+  { employee: 1, cycle: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { employee: { $ne: null } },
+    name: "employee_cycle_unique",
+  }
+);
 
 ContributionSchema.virtual("total").get(function total() {
   return (this.academy || 0) + (this.intensive || 0) + (this.niat || 0);

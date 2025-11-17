@@ -10,6 +10,16 @@ import LoginPage from './pages/Login.jsx'
 import ProfilePage from './pages/Profile.jsx'
 import { useAuth } from './providers/AuthProvider.jsx'
 
+function AdminOnlyRoute({ children }) {
+  const { user } = useAuth()
+  
+  if (user?.role !== 'Admin') {
+    return <Navigate to="/" replace />
+  }
+  
+  return children
+}
+
 function App() {
   const { isAuthenticated } = useAuth()
 
@@ -22,9 +32,9 @@ function App() {
       <Route element={<ProtectedRoute />}>
         <Route path="/" element={<DashboardLayout />}>
           <Route index element={<DashboardPage />} />
-          <Route path="employees" element={<EmployeesPage />} />
+          <Route path="employees" element={<AdminOnlyRoute><EmployeesPage /></AdminOnlyRoute>} />
           <Route path="contributions" element={<ContributionsPage />} />
-          <Route path="departments" element={<DepartmentsPage />} />
+          <Route path="departments" element={<AdminOnlyRoute><DepartmentsPage /></AdminOnlyRoute>} />
           <Route path="profile" element={<ProfilePage />} />
         </Route>
       </Route>

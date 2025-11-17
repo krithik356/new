@@ -34,8 +34,9 @@ const UserSchema = new Schema(
       default: null,
       validate: {
         validator(value) {
-          if (this.role === "HOD") {
-            return Boolean(value);
+          if (this.role === "HOD" && !value) {
+            // Allow new HODs without an assigned department; admins can link later.
+            return this.isNew;
           }
           return true;
         },

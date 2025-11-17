@@ -7,7 +7,7 @@ const EMPTY_FORM = { email: '', password: '' }
 
 export default function LoginPage() {
   const navigate = useNavigate()
-  const { isAuthenticated, signIn, loading, error } = useAuth()
+  const { isAuthenticated, signIn, loading, error, clearError } = useAuth()
   const [form, setForm] = useState(EMPTY_FORM)
   const [successMessage, setSuccessMessage] = useState(null)
 
@@ -23,8 +23,12 @@ export default function LoginPage() {
     }
   }, [error])
 
+
   const handleChange = (event) => {
     const { name, value } = event.target
+    if (error) {
+      clearError()
+    }
     setForm((prev) => ({
       ...prev,
       [name]: value,
@@ -42,15 +46,26 @@ export default function LoginPage() {
         throw new Error('Please provide both email and password.')
       }
 
+      // Only send email and password for login
       await signIn({ email: trimmedEmail, password: trimmedPassword })
       setSuccessMessage('Welcome back! Redirecting you to the dashboard...')
       setForm(EMPTY_FORM)
     } catch (err) {
-      const message = err?.message ?? 'Unable to sign in. Please try again.'
+      let message = err?.message ?? 'Unable to sign in. Please try again.'
+      
+      // Handle validation errors from backend
+      if (err?.details?.errors && Array.isArray(err.details.errors)) {
+        const validationErrors = err.details.errors.map(e => e.msg || e.message).join(', ')
+        message = validationErrors || message
+      } else if (err?.details?.message) {
+        message = err.details.message
+      }
+      
       setSuccessMessage(null)
-      console.error('[Login] Sign-in failed:', message)
+      console.error('[Login] Sign-in failed:', err)
     }
   }
+
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 px-4 py-20 text-slate-100">
@@ -88,10 +103,12 @@ export default function LoginPage() {
               <p className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.4em] text-emerald-200">
                 Welcome
               </p>
-              <h2 className="text-3xl font-semibold text-slate-50 sm:text-4xl">Sign in to continue</h2>
-              <p className="text-sm leading-6 text-slate-400">
-                Enter the credentials provided by your administrator to manage contributions, employees, and departments.
-              </p>
+                    <h2 className="text-3xl font-semibold text-slate-50 sm:text-4xl">
+                      Sign in to continue
+                    </h2>
+                    <p className="text-sm leading-6 text-slate-400">
+                      Enter the credentials provided by your administrator to manage contributions, employees, and departments.
+                    </p>
             </div>
 
             {error ? (
@@ -116,7 +133,7 @@ export default function LoginPage() {
                   value={form.email}
                   onChange={handleChange}
                   required
-                  placeholder="you@company.com"
+                  placeholder="Enter your email address"
                   className="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-sm text-slate-100 shadow-inner shadow-black/40 transition focus:border-emerald-400/80 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
                   disabled={loading}
                 />

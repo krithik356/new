@@ -8,6 +8,20 @@ async function listContributions(req, res, next) {
     const { cycle } = req.query;
     const filter = {};
 
+    // HOD can only see their department's contributions
+    if (req.user.role === "HOD") {
+      if (!req.user.department) {
+        // Return empty array instead of error
+        return res.json({
+          success: true,
+          data: [],
+          message: "You must be assigned to a department to view contributions. Please contact an administrator to assign your department.",
+        });
+      }
+      filter.department = req.user.department;
+    }
+    // Admin can see all contributions (no filter)
+
     if (cycle) {
       filter.cycle = cycle;
     }
@@ -20,6 +34,7 @@ async function listContributions(req, res, next) {
           select: "name email",
         },
       })
+      .populate("employee", "name empId designation email")
       .populate("submittedBy", "name email role")
       .sort({ submittedAt: -1 });
 
@@ -43,18 +58,26 @@ async function getContributionByDepartment(req, res, next) {
       });
     }
 
-    if (
-      req.user.role === "HOD" &&
-      String(req.user.department) !== String(departmentId)
-    ) {
-      return res.status(403).json({
-        success: false,
-        message: "You can only view your own department contribution.",
-      });
+    // HOD must have a department assigned
+    if (req.user.role === "HOD") {
+      if (!req.user.department) {
+        return res.status(403).json({
+          success: false,
+          message: "You must be assigned to a department to view contributions. Please contact an administrator to assign your department.",
+        });
+      }
+      
+      if (String(req.user.department) !== String(departmentId)) {
+        return res.status(403).json({
+          success: false,
+          message: "You can only view your own department contribution.",
+        });
+      }
     }
 
     const contribution = await Contribution.findOne({
       department: departmentId,
+      employee: null, // Department-level contribution
     })
       .populate("department", "name code")
       .populate("submittedBy", "name email role");
@@ -264,9 +287,79 @@ async function deleteContribution(req, res, next) {
   }
 }
 
+async function getEmployeesWithContributions(req, res, next) {
+  try {
+    const { cycle } = req.query;
+    const { Employee } = require("../models/Employee");
+    const { Contribution } = require("../models/Contribution");
+
+    let departmentFilter = {};
+    let contributionDepartmentFilter = {};
+    
+    // HOD can only see their department's employees and contributions
+    if (req.user.role === "HOD") {
+      if (!req.user.department) {
+        // Return empty array instead of 403
+        return res.json({
+          success: true,
+          data: [],
+          message: "You must be assigned to a department to view employee contributions. Please contact an administrator to assign your department.",
+        });
+      }
+      departmentFilter.department = req.user.department;
+      contributionDepartmentFilter.department = req.user.department;
+    }
+    // Admin can see all employees (no filter)
+
+    const employees = await Employee.find(departmentFilter)
+      .populate("department", "name code")
+      .sort({ name: 1 })
+      .lean();
+
+    const employeeIds = employees.map((emp) => emp._id);
+    
+    const contributionFilter = {
+      employee: { $in: employeeIds },
+      ...contributionDepartmentFilter, // Ensure contributions are also filtered by department for HODs
+    };
+    
+    if (cycle) {
+      contributionFilter.cycle = cycle;
+    }
+
+    const contributions = await Contribution.find(contributionFilter)
+      .populate("employee", "name empId designation email")
+      .populate("department", "name code")
+      .populate("submittedBy", "name email")
+      .sort({ cycle: -1, submittedAt: -1 })
+      .lean();
+
+    // Group contributions by employee
+    const employeesWithContributions = employees.map((employee) => {
+      const employeeContributions = contributions.filter(
+        (contrib) => String(contrib.employee?._id) === String(employee._id)
+      );
+      
+      return {
+        ...employee,
+        contributions: employeeContributions,
+        totalContributions: employeeContributions.length,
+      };
+    });
+
+    return res.json({
+      success: true,
+      data: employeesWithContributions,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   listContributions,
   getContributionByDepartment,
+  getEmployeesWithContributions,
   createContribution,
   updateContribution,
   deleteContribution,

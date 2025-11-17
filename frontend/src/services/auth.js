@@ -9,3 +9,13 @@ export async function login(credentials) {
   }
 }
 
+export async function signup(data) {
+  const payload = await apiClient.signup(data)
+
+  return {
+    token: payload.data?.token,
+    user: payload.data?.user,
+    message: payload.message,
+  }
+}
+

@@ -4,15 +4,20 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../providers/AuthProvider.jsx'
 
 const navigation = [
-  { to: '/', label: 'Overview' },
-  { to: '/employees', label: 'Employees' },
-  { to: '/contributions', label: 'Contributions' },
-  { to: '/departments', label: 'Departments' },
-  { to: '/profile', label: 'Profile' },
+  { to: '/', label: 'Overview', roles: ['Admin', 'HOD'] },
+  { to: '/employees', label: 'Employees', roles: ['Admin'] },
+  { to: '/contributions', label: 'Contributions', roles: ['Admin', 'HOD'] },
+  { to: '/departments', label: 'Departments', roles: ['Admin'] },
+  { to: '/profile', label: 'Profile', roles: ['Admin', 'HOD'] },
 ]
 
 export default function DashboardLayout() {
   const { user, signOut } = useAuth()
+  
+  const filteredNavigation = navigation.filter((item) => {
+    if (!item.roles) return true
+    return item.roles.includes(user?.role)
+  })
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   const initials = user?.name
@@ -43,7 +48,7 @@ export default function DashboardLayout() {
         </div>
 
         <nav className="flex flex-col gap-1 px-4 py-6 text-sm">
-          {navigation.map((item) => (
+          {filteredNavigation.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -90,7 +95,9 @@ export default function DashboardLayout() {
           <div className="ml-auto flex items-center gap-4 text-sm text-slate-300">
             <div className="hidden text-right sm:block">
               <p className="font-medium text-slate-200">{user?.name ?? user?.email}</p>
-              <p className="text-xs uppercase tracking-wide text-emerald-300/80">{user?.role ?? 'Member'}</p>
+              <p className="text-xs uppercase tracking-wide text-emerald-300/80">
+                {user?.role === 'Admin' ? 'Administrator' : user?.role ?? 'Member'}
+              </p>
             </div>
             <span className="grid h-11 w-11 place-items-center rounded-full bg-emerald-500/15 text-base font-semibold text-emerald-300">
               {initials}

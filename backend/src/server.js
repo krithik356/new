@@ -14,7 +14,10 @@ const { connectDB, disconnectDB } = require("./config/db");
 const { notFound, errorHandler } = require("./middleware/errorHandler");
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
+
+// Disable ETag to prevent 304 responses
+app.set("etag", false);
 
 // CORS Configuration
 const allowedOrigins = [
@@ -58,6 +61,17 @@ app.use(
     crossOriginEmbedderPolicy: false,
   })
 );
+
+// Disable caching for API responses (ensure fresh data)
+app.use((req, res, next) => {
+  // Disable caching for all API routes
+  res.set({
+    "Cache-Control": "no-store, no-cache, must-revalidate, private",
+    "Pragma": "no-cache",
+    "Expires": "0",
+  });
+  next();
+});
 
 // Body parsing middleware
 app.use(express.json());

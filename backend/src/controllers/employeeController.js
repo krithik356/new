@@ -17,6 +17,7 @@ async function listEmployees(req, res, next) {
 
       if (
         req.user.role === "HOD" &&
+        req.user.department &&
         String(req.user.department) !== String(departmentId)
       ) {
         return res.status(403).json({
@@ -27,11 +28,23 @@ async function listEmployees(req, res, next) {
 
       filter.department = departmentId;
     } else if (req.user.role === "HOD") {
+      // HOD must have a department assigned to view employees
+      if (!req.user.department) {
+        // Return empty array instead of 403, so frontend can show helpful message
+        return res.json({
+          success: true,
+          data: [],
+          message: "You must be assigned to a department to view employees. Please contact an administrator to assign your department.",
+        });
+      }
+      // HOD with assigned department: only show their department
       filter.department = req.user.department;
     }
+    // Admin: no filter, show all
 
     const employees = await Employee.find(filter)
       .populate("department", "name code")
+      .sort({ "department.name": 1, name: 1 })
       .lean();
 
     return res.json({

@@ -3,6 +3,7 @@ const { body, param, query } = require("express-validator");
 const {
   listContributions,
   getContributionByDepartment,
+  getEmployeesWithContributions,
   createContribution,
   updateContribution,
   deleteContribution,
@@ -18,11 +19,21 @@ router.use(authenticate);
 router.get(
   "/all",
   [
-    authorizeRole("Admin"),
+    authorizeRole("Admin", "HOD"),
     query("cycle").optional().isString(),
     validateRequest,
   ],
   listContributions
+);
+
+router.get(
+  "/employees",
+  [
+    authorizeRole("Admin", "HOD"),
+    query("cycle").optional().isString(),
+    validateRequest,
+  ],
+  getEmployeesWithContributions
 );
 
 router.get(

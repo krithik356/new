@@ -5,7 +5,23 @@ const { Employee } = require("../models/Employee");
 
 async function getDepartments(req, res, next) {
   try {
-    const departments = await Department.find()
+    let filter = {};
+    
+    // HOD can only see their own department
+    if (req.user.role === "HOD") {
+      if (!req.user.department) {
+        // Return empty array if HOD has no department
+        return res.json({
+          success: true,
+          data: [],
+          message: "You must be assigned to a department. Please contact an administrator.",
+        });
+      }
+      filter._id = req.user.department;
+    }
+    // Admin: no filter, show all
+
+    const departments = await Department.find(filter)
       .populate("hod", "name email role")
       .lean();
 
@@ -29,11 +45,21 @@ async function getDepartmentById(req, res, next) {
       });
     }
 
-    if (req.user.role === "HOD" && String(req.user.department) !== id) {
-      return res.status(403).json({
-        success: false,
-        message: "You can only view your own department.",
-      });
+    // HOD must have a department assigned
+    if (req.user.role === "HOD") {
+      if (!req.user.department) {
+        return res.status(403).json({
+          success: false,
+          message: "You must be assigned to a department to view department details. Please contact an administrator to assign your department.",
+        });
+      }
+      
+      if (String(req.user.department) !== String(id)) {
+        return res.status(403).json({
+          success: false,
+          message: "You can only view your own department.",
+        });
+      }
     }
 
     const department = await Department.findById(id)

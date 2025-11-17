@@ -1,11 +1,24 @@
 function authorizeRole(...roles) {
   return (req, res, next) => {
-    if (!req.user || !roles.includes(req.user.role)) {
-      return res.status(403).json({
+    if (!req.user) {
+      return res.status(401).json({
         success: false,
-        message: "You do not have permission to perform this action.",
+        message: "Authentication required.",
       });
     }
+
+    // Ensure role is exactly "Admin" or "HOD" (case-sensitive)
+    const userRole = req.user.role === "Admin" ? "Admin" : req.user.role === "HOD" ? "HOD" : req.user.role;
+
+    if (!roles.includes(userRole)) {
+      return res.status(403).json({
+        success: false,
+        message: `You do not have permission to perform this action. Required role: ${roles.join(" or ")}. Your role: ${userRole || "none"}.`,
+      });
+    }
+
+    // Update req.user.role to ensure consistency
+    req.user.role = userRole;
 
     return next();
   };
@@ -20,7 +33,10 @@ function authorizeDepartmentAccess(paramName = "departmentId") {
       });
     }
 
-    if (req.user.role === "Admin") {
+    // Ensure role is exactly "Admin" or "HOD" (case-sensitive)
+    const userRole = req.user.role === "Admin" ? "Admin" : req.user.role === "HOD" ? "HOD" : req.user.role;
+    
+    if (userRole === "Admin") {
       return next();
     }
 

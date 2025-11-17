@@ -17,7 +17,7 @@ export default function ProfilePage() {
       { label: 'Email address', value: user?.email ?? 'Not provided' },
       {
         label: 'Role',
-        value: user?.role ?? 'Member',
+        value: user?.role === 'Admin' ? 'Administrator' : user?.role ?? 'Member',
       },
       {
         label: 'Department',

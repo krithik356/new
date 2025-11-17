@@ -13,9 +13,12 @@ function authenticate(req, res, next) {
 
   try {
     const payload = verifyToken(token);
+    // Ensure role is exactly "Admin" or "HOD" (case-sensitive)
+    const userRole = payload.role === "Admin" ? "Admin" : payload.role === "HOD" ? "HOD" : payload.role;
+    
     req.user = {
       id: payload.id,
-      role: payload.role,
+      role: userRole,
       department: payload.department || null,
     };
     return next();

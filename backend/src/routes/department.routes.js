@@ -12,9 +12,24 @@ const { validateRequest } = require("../middleware/validateRequest");
 
 const router = Router();
 
+// Public endpoint to list departments (for signup)
+router.get("/public", async (req, res, next) => {
+  try {
+    const { Department } = require("../models/Department");
+    const departments = await Department.find().select("name code").lean();
+    return res.json({
+      success: true,
+      data: departments,
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 router.use(authenticate);
 
-router.get("/", authorizeRole("Admin"), getDepartments);
+// Allow both Admin and HOD to get departments (HOD sees only their own)
+router.get("/", authorizeRole("Admin", "HOD"), getDepartments);
 
 router.get(
   "/:id",
