@@ -9,6 +9,7 @@ import PayrollPage from './pages/Payroll.jsx'
 import LoginPage from './pages/Login.jsx'
 import ProfilePage from './pages/Profile.jsx'
 import { useAuth } from './providers/AuthProvider.jsx'
+import { ViewModeProvider } from './providers/ViewModeProvider.jsx'
 
 function AdminOnlyRoute({ children }) {
   const { user } = useAuth()
@@ -17,6 +18,16 @@ function AdminOnlyRoute({ children }) {
     return <Navigate to="/" replace />
   }
   
+  return children
+}
+
+function AdminOrHodRoute({ children }) {
+  const { user } = useAuth()
+
+  if (user?.role !== 'Admin' && user?.role !== 'HOD') {
+    return <Navigate to="/" replace />
+  }
+
   return children
 }
 
@@ -30,9 +41,16 @@ function App() {
       </Route>
 
       <Route element={<ProtectedRoute />}>
-        <Route path="/" element={<DashboardLayout />}>
+        <Route
+          path="/"
+          element={(
+            <ViewModeProvider>
+              <DashboardLayout />
+            </ViewModeProvider>
+          )}
+        >
           <Route index element={<DashboardPage />} />
-          <Route path="employees" element={<AdminOnlyRoute><EmployeesPage /></AdminOnlyRoute>} />
+          <Route path="employees" element={<AdminOrHodRoute><EmployeesPage /></AdminOrHodRoute>} />
           <Route path="payroll" element={<PayrollPage />} />
           <Route path="departments" element={<AdminOnlyRoute><DepartmentsPage /></AdminOnlyRoute>} />
           <Route path="profile" element={<ProfilePage />} />

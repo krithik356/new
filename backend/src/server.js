@@ -1,5 +1,6 @@
 require("dotenv").config();
 const express = require("express");
+const net = require("net");
 const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
@@ -14,7 +15,7 @@ const { connectDB, disconnectDB } = require("./config/db");
 const { notFound, errorHandler } = require("./middleware/errorHandler");
 
 const app = express();
-const PORT = process.env.PORT || 5001;
+const DEFAULT_PORT = Number(process.env.PORT) || 5001;
 const isServerless = Boolean(process.env.VERCEL);
 
 // Disable ETag
@@ -94,14 +95,65 @@ app.use(notFound);
 // Error handler
 app.use(errorHandler);
 
+function isPortAvailable(port) {
+  return new Promise((resolve, reject) => {
+    const tester = net
+      .createServer()
+      .once("error", (err) => {
+        if (err.code === "EADDRINUSE") {
+          resolve(false);
+        } else {
+          reject(err);
+        }
+      })
+      .once("listening", () => {
+        tester
+          .close(() => {
+            resolve(true);
+          })
+          .on("error", reject);
+      })
+      .listen(port, "0.0.0.0");
+  });
+}
+
+async function findOpenPort(startPort, attempts = 5) {
+  let port = startPort;
+  for (let i = 0; i < attempts; i += 1) {
+    if (await isPortAvailable(port)) {
+      return port;
+    }
+    port += 1;
+  }
+
+  throw new Error(
+    `No available ports found between ${startPort} and ${port - 1}.`
+  );
+}
+
 // Start server
 async function startServer() {
   try {
     await connectDB();
 
-    const server = app.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`📍 Health check: http://localhost:${PORT}/api/health`);
+    let resolvedPort = DEFAULT_PORT;
+    try {
+      resolvedPort = await findOpenPort(DEFAULT_PORT);
+      if (resolvedPort !== DEFAULT_PORT) {
+        console.warn(
+          `⚠️  Port ${DEFAULT_PORT} is busy. Switched to available port ${resolvedPort}.`
+        );
+      }
+    } catch (portError) {
+      console.error("❌ Unable to find an open port:", portError.message);
+      process.exit(1);
+    }
+
+    const server = app.listen(resolvedPort, () => {
+      console.log(`🚀 Server running on port ${resolvedPort}`);
+      console.log(
+        `📍 Health check: http://localhost:${resolvedPort}/api/health`
+      );
     });
 
     // Graceful shutdown

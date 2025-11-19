@@ -2,14 +2,22 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { apiClient, ApiError } from '../services/apiClient.js'
 import { useAuth } from '../providers/AuthProvider.jsx'
+import { useViewMode } from '../providers/ViewModeProvider.jsx'
 
 export default function EmployeesPage() {
   const { token, user } = useAuth()
+  const { mode } = useViewMode()
+  const isAdmin = user?.role === 'Admin'
+  const hodDepartmentId = user?.department?.id ?? user?.department?._id ?? null
   const [employees, setEmployees] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
   const [departmentFilter, setDepartmentFilter] = useState('all')
+
+  useEffect(() => {
+    setDepartmentFilter('all')
+  }, [mode])
 
   useEffect(() => {
     let cancelled = false
@@ -45,97 +53,146 @@ export default function EmployeesPage() {
     }
   }, [token])
 
-  // First, filter employees by HOD's department if applicable
-  const departmentFilteredEmployees = useMemo(() => {
-    if (user?.role === 'HOD' && user?.department?.id) {
-      return employees.filter(emp => 
-        emp.department && 
-        (emp.department.id === user.department.id || emp.department._id === user.department.id)
-      )
-    }
-    return employees
-  }, [employees, user?.role, user?.department?.id])
+  const getDepartmentId = (department) => {
+    if (!department) return null
+    if (typeof department === 'string') return department
+    return department.id ?? department._id ?? null
+  }
+
+  const getSourceName = (employee) =>
+    employee?.sourceDepartmentName ??
+    employee?.department?.name ??
+    'Unassigned'
+
+  const getBeneficiaryName = (employee) =>
+    employee?.beneficiaryDepartmentName ??
+    employee?.currentDepartment?.name ??
+    getSourceName(employee)
 
   const departments = useMemo(() => {
     const unique = new Map()
-    departmentFilteredEmployees.forEach((employee) => {
-      if (employee.department) {
-        unique.set(employee.department.id ?? employee.department._id, employee.department.name)
+    employees.forEach((employee) => {
+      const reference =
+        mode === 'source'
+          ? employee.department
+          : employee.currentDepartment ?? employee.department
+      const referenceId = getDepartmentId(reference)
+      if (!referenceId) {
+        return
       }
+      const label =
+        mode === 'source'
+          ? getSourceName(employee)
+          : getBeneficiaryName(employee)
+      unique.set(referenceId, label)
     })
-    return Array.from(unique, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))
-  }, [departmentFilteredEmployees])
+    return Array.from(unique, ([id, name]) => ({ id, name })).sort((a, b) =>
+      a.name.localeCompare(b.name)
+    )
+  }, [employees, mode])
 
-  const employeesByDepartment = useMemo(() => {
+  const filteredEmployees = useMemo(() => {
+    const query = search.trim().toLowerCase()
+
+    return employees.filter((employee) => {
+      const matchesSearch =
+        !query ||
+        [employee.name, employee.email, employee.empId]
+          .filter(Boolean)
+          .some((value) => value.toLowerCase().includes(query))
+
+      const relevantDepartment =
+        mode === 'source'
+          ? employee.department
+          : employee.currentDepartment ?? employee.department
+      const matchesDepartment =
+        departmentFilter === 'all' ||
+        (relevantDepartment &&
+          getDepartmentId(relevantDepartment) === departmentFilter)
+
+      if (!matchesDepartment || !matchesSearch) {
+        return false
+      }
+
+      if (!isAdmin && user?.role === 'HOD' && hodDepartmentId) {
+        if (mode === 'source') {
+          return (
+            getDepartmentId(employee.department) === hodDepartmentId
+          )
+        }
+        const workingId = getDepartmentId(
+          employee.currentDepartment ?? employee.department
+        )
+        return workingId === hodDepartmentId
+      }
+
+      return true
+    })
+  }, [employees, search, departmentFilter, mode, isAdmin, user?.role, hodDepartmentId])
+
+  const groupedEmployees = useMemo(() => {
+    if (isAdmin) {
+      return []
+    }
+
     const grouped = new Map()
-    departmentFilteredEmployees.forEach((employee) => {
-      const deptId = employee.department?.id ?? employee.department?._id ?? 'unassigned'
-      const deptName = employee.department?.name ?? 'Unassigned'
+
+    filteredEmployees.forEach((employee) => {
+      const groupRef =
+        mode === 'source'
+          ? employee.department
+          : employee.currentDepartment ?? employee.department
+      const deptId = getDepartmentId(groupRef) ?? 'unassigned'
+      const deptName =
+        groupRef?.name ??
+        (mode === 'source' ? getSourceName(employee) : getBeneficiaryName(employee)) ??
+        'Unassigned'
+      const deptCode = groupRef?.code
+
       if (!grouped.has(deptId)) {
         grouped.set(deptId, {
           id: deptId,
           name: deptName,
-          code: employee.department?.code,
+          code: deptCode,
           employees: [],
         })
       }
       grouped.get(deptId).employees.push(employee)
     })
-    
-    // Sort employees within each department
+
     grouped.forEach((dept) => {
-      dept.employees.sort((a, b) => {
-        const nameA = (a.name || '').toLowerCase()
-        const nameB = (b.name || '').toLowerCase()
-        return nameA.localeCompare(nameB)
-      })
+      dept.employees.sort((a, b) =>
+        (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase())
+      )
     })
-    
+
     return Array.from(grouped.values()).sort((a, b) => {
       if (a.name === 'Unassigned') return 1
       if (b.name === 'Unassigned') return -1
       return a.name.localeCompare(b.name)
     })
-  }, [departmentFilteredEmployees])
+  }, [filteredEmployees, isAdmin, mode])
 
-  const filteredEmployees = useMemo(() => {
-    const query = search.trim().toLowerCase()
-    
-    return employeesByDepartment
-      .map((dept) => {
-        const filtered = dept.employees.filter((employee) => {
-          const matchesSearch =
-            !query ||
-            [employee.name, employee.email, employee.empId]
-              .filter(Boolean)
-              .some((value) => value.toLowerCase().includes(query))
-
-          const matchesDepartment =
-            departmentFilter === 'all' ||
-            (employee.department && (employee.department.id ?? employee.department._id) === departmentFilter)
-
-          return matchesSearch && matchesDepartment
-        })
-        
-        return { ...dept, employees: filtered }
-      })
-      .filter((dept) => dept.employees.length > 0)
-  }, [employeesByDepartment, search, departmentFilter])
-
-  const employeeCount = filteredEmployees.reduce((sum, dept) => sum + dept.employees.length, 0)
-  const totalCount = departmentFilteredEmployees.length
+  const employeeCount = filteredEmployees.length
+  const totalCount = employees.length
+  const departmentFilterLabel = mode === 'source' ? 'Hired Department' : 'Working Department'
+  const selectedDepartmentName =
+    departmentFilter === 'all'
+      ? null
+      : departments.find((department) => department.id === departmentFilter)?.name
+  const adminTableTitle = mode === 'source' ? 'Source Employees' : 'Beneficiary Employees'
 
   return (
     <section className="space-y-6">
-      <header>
+      <header className="space-y-4">
         <p className="text-sm uppercase tracking-[0.4em] text-emerald-300/80">People</p>
-        <h1 className="mt-2 text-3xl font-semibold text-slate-50">Employees</h1>
-        <p className="mt-3 max-w-2xl text-sm text-slate-400">
+        <h1 className="text-3xl font-semibold text-slate-50">Employees</h1>
+        <p className="max-w-2xl text-sm text-slate-400">
           Browse every employee you have access to, search instantly, and filter by department to surface the right
-          teammate.
+          teammate. Use the navbar toggle to switch between Source and Beneficiary views anywhere in the app.
         </p>
         {user?.role === 'HOD' && user?.department && (
-          <div className="mt-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+          <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
             <p className="font-semibold">Viewing Department:</p>
             <p className="mt-1 text-base font-bold text-emerald-100">
               {user.department.name}
@@ -143,10 +200,10 @@ export default function EmployeesPage() {
             </p>
           </div>
         )}
-        {!loading && !error && user?.role === 'Admin' && (
-          <div className="mt-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+        {!loading && !error && isAdmin && (
+          <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
             Showing <span className="font-semibold">{employeeCount}</span> of <span className="font-semibold">{totalCount}</span> employees
-            {departmentFilter !== 'all' && ` in ${departments.find(d => d.id === departmentFilter)?.name || 'selected department'}`}
+            {selectedDepartmentName && ` in ${selectedDepartmentName}`}
           </div>
         )}
       </header>
@@ -166,10 +223,10 @@ export default function EmployeesPage() {
           />
         </div>
 
-        {user?.role === 'Admin' && (
+        {isAdmin && (
           <div className="flex w-full flex-col gap-2 sm:w-64">
             <label className="text-xs font-medium uppercase tracking-widest text-slate-500" htmlFor="department">
-              Department
+              {departmentFilterLabel}
             </label>
             <select
               id="department"
@@ -203,9 +260,60 @@ export default function EmployeesPage() {
         <div className="rounded-3xl border border-slate-800/70 bg-slate-900/60 px-6 py-12 text-center text-slate-400">
           {error ? 'Unable to load employees.' : 'No employees match your criteria.'}
         </div>
+      ) : isAdmin ? (
+        <div className="overflow-hidden rounded-3xl border border-slate-800/70 shadow-2xl shadow-black/30">
+          <div className="border-b border-slate-800/80 bg-slate-950/80 px-6 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-100">{adminTableTitle}</h2>
+                <p className="text-xs uppercase tracking-[0.4em] text-slate-500">
+                  Sheet view with department columns
+                </p>
+              </div>
+              <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-4 py-1 text-sm font-semibold text-emerald-200">
+                {employeeCount} records
+              </span>
+            </div>
+          </div>
+          <div className="max-h-[65vh] overflow-auto bg-slate-950/60">
+            <table className="min-w-full divide-y divide-slate-800/80 text-sm">
+              <thead className="sticky top-0 z-10 bg-slate-950/90 text-left uppercase tracking-[0.25em] text-slate-500 backdrop-blur-sm">
+                <tr>
+                  <th scope="col" className="px-6 py-4 font-semibold">Employee</th>
+                  <th scope="col" className="px-6 py-4 font-semibold">Department</th>
+                  <th scope="col" className="px-6 py-4 font-semibold">Designation</th>
+                  <th scope="col" className="px-6 py-4 font-semibold">Email</th>
+                  <th scope="col" className="px-6 py-4 font-semibold">Source</th>
+                  <th scope="col" className="px-6 py-4 font-semibold">Beneficiary</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60 text-slate-200">
+                {filteredEmployees.map((employee) => {
+                  const sourceName = getSourceName(employee)
+                  const beneficiaryName = getBeneficiaryName(employee)
+                  return (
+                    <tr key={employee.id ?? employee._id ?? employee.empId} className="transition hover:bg-slate-900/50">
+                      <td className="px-6 py-4">
+                        <div>
+                          <p className="font-semibold text-slate-100">{employee.name}</p>
+                          <p className="text-xs uppercase tracking-[0.4em] text-slate-500">{employee.empId ?? '—'}</p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">{employee.department?.name ?? sourceName}</td>
+                      <td className="px-6 py-4">{employee.designation ?? '—'}</td>
+                      <td className="px-6 py-4">{employee.email ?? '—'}</td>
+                      <td className="px-6 py-4">{sourceName}</td>
+                      <td className="px-6 py-4">{beneficiaryName}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       ) : (
         <div className="space-y-6">
-          {filteredEmployees.map((dept) => (
+          {groupedEmployees.map((dept) => (
             <div
               key={dept.id}
               className="overflow-hidden rounded-3xl border border-slate-800/70 shadow-2xl shadow-black/30"
@@ -236,22 +344,34 @@ export default function EmployeesPage() {
                       <th scope="col" className="px-6 py-4 font-semibold">
                         Email
                       </th>
+                      <th scope="col" className="px-6 py-4 font-semibold">
+                        Source
+                      </th>
+                      <th scope="col" className="px-6 py-4 font-semibold">
+                        Beneficiary
+                      </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800/60 text-slate-200">
-                    {dept.employees.map((employee) => (
-                      <tr key={employee.id ?? employee._id ?? employee.empId} className="hover:bg-slate-900/50 transition">
-                        <td className="px-6 py-4">
-                          <div>
-                            <p className="font-semibold text-slate-100">{employee.name}</p>
-                            <p className="text-xs uppercase tracking-[0.4em] text-slate-500">{employee.empId ?? '—'}</p>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">{employee.designation ?? '—'}</td>
-                        <td className="px-6 py-4">{employee.email ?? '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
+                    <tbody className="divide-y divide-slate-800/60 text-slate-200">
+                      {dept.employees.map((employee) => {
+                        const sourceName = getSourceName(employee)
+                        const beneficiaryName = getBeneficiaryName(employee)
+                        return (
+                          <tr key={employee.id ?? employee._id ?? employee.empId} className="hover:bg-slate-900/50 transition">
+                            <td className="px-6 py-4">
+                              <div>
+                                <p className="font-semibold text-slate-100">{employee.name}</p>
+                                <p className="text-xs uppercase tracking-[0.4em] text-slate-500">{employee.empId ?? '—'}</p>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">{employee.designation ?? '—'}</td>
+                            <td className="px-6 py-4">{employee.email ?? '—'}</td>
+                            <td className="px-6 py-4">{sourceName}</td>
+                            <td className="px-6 py-4">{beneficiaryName}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
                 </table>
               </div>
             </div>
