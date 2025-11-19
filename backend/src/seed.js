@@ -94,6 +94,8 @@ async function run() {
   const usedNames = new Set();
   const usedEmails = new Set();
   
+  const employeesByDept = new Map();
+
   hodUsers.forEach((hod, index) => {
     const dept = departments[index];
     // Distribute 50 employees: 17, 17, 16
@@ -126,11 +128,61 @@ async function run() {
         empId,
         name: fullName,
         department: dept._id,
+        currentDepartment: dept._id,
+        sourceDepartmentName: dept.name,
+        beneficiaryDepartmentName: dept.name,
         designation: designations[Math.floor(Math.random() * designations.length)],
         email,
         salary: generateRandomSalary(),
       });
+
+      const deptKey = String(dept._id);
+      if (!employeesByDept.has(deptKey)) {
+        employeesByDept.set(deptKey, []);
+      }
+      employeesByDept.get(deptKey).push(employeeDocs.length - 1);
     }
+  });
+
+  const deptBuckets = departments.map((dept) => ({
+    dept,
+    indexes: employeesByDept.get(String(dept._id)) ?? [],
+  }));
+
+  function reassignFromDonor(donorIndex, targetIndex, count) {
+    if (
+      donorIndex === targetIndex ||
+      donorIndex < 0 ||
+      donorIndex >= deptBuckets.length ||
+      targetIndex < 0 ||
+      targetIndex >= deptBuckets.length
+    ) {
+      return;
+    }
+
+    const donorBucket = deptBuckets[donorIndex];
+    const targetDept = deptBuckets[targetIndex].dept;
+
+    for (let i = 0; i < count && donorBucket.indexes.length > 0; i += 1) {
+      const employeeIndex = donorBucket.indexes.shift();
+      if (typeof employeeIndex !== "number") {
+        break;
+      }
+      employeeDocs[employeeIndex].currentDepartment = targetDept._id;
+      employeeDocs[employeeIndex].beneficiaryDepartmentName = targetDept.name;
+    }
+  }
+
+  const PRIMARY_EXCHANGE = 3;
+  const SECONDARY_EXCHANGE = 2;
+
+  deptBuckets.forEach((_, targetIndex) => {
+    const nextIndex = (targetIndex + 1) % deptBuckets.length;
+    const prevIndex =
+      (targetIndex - 1 + deptBuckets.length) % deptBuckets.length;
+
+    reassignFromDonor(nextIndex, targetIndex, PRIMARY_EXCHANGE);
+    reassignFromDonor(prevIndex, targetIndex, SECONDARY_EXCHANGE);
   });
   
   // Insert employees and get the actual documents with _id values

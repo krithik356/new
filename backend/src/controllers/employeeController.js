@@ -35,22 +35,24 @@ async function listEmployees(req, res, next) {
 
       filter.department = departmentId;
     } else if (req.user.role === "HOD") {
-      // HOD must have a department assigned to view employees
       if (!req.user.department) {
-        // Return empty array instead of 403, so frontend can show helpful message
         return res.json({
           success: true,
           data: [],
-          message: "You must be assigned to a department to view employees. Please contact an administrator to assign your department.",
+          message:
+            "You must be assigned to a department to view employees. Please contact an administrator to assign your department.",
         });
       }
-      // HOD with assigned department: only show their department
-      filter.department = req.user.department;
+
+      filter.$or = [
+        { department: req.user.department },
+        { currentDepartment: req.user.department },
+      ];
     }
-    // Admin: no filter, show all
 
     const employees = await Employee.find(filter)
       .populate("department", "name code")
+      .populate("currentDepartment", "name code")
       .sort({ "department.name": 1, name: 1 })
       .lean();
 
@@ -92,20 +94,45 @@ async function seedEmployees(req, res, next) {
         });
       }
 
-      const departmentExists = await Department.exists({
-        _id: employee.department,
-      });
-      if (!departmentExists) {
+      const departmentDoc = await Department.findById(employee.department)
+        .select("name")
+        .lean();
+      if (!departmentDoc) {
         return res.status(400).json({
           success: false,
           message: `Department not found for employee ${employee.empId}.`,
         });
       }
 
+      let currentDepartmentId = employee.currentDepartment || employee.department;
+      if (!mongoose.isValidObjectId(currentDepartmentId)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid current department id for employee ${employee.empId}.`,
+        });
+      }
+
+      let currentDepartmentDoc = departmentDoc;
+      if (String(currentDepartmentId) !== String(employee.department)) {
+        currentDepartmentDoc = await Department.findById(currentDepartmentId)
+          .select("name")
+          .lean();
+
+        if (!currentDepartmentDoc) {
+          return res.status(400).json({
+            success: false,
+            message: `Current department not found for employee ${employee.empId}.`,
+          });
+        }
+      }
+
       docs.push({
         empId: employee.empId,
         name: employee.name,
         department: employee.department,
+        currentDepartment: currentDepartmentId,
+        sourceDepartmentName: departmentDoc.name,
+        beneficiaryDepartmentName: currentDepartmentDoc?.name ?? departmentDoc.name,
         designation: employee.designation,
         email: employee.email,
         salary:
