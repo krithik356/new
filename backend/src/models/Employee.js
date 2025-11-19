@@ -24,6 +24,11 @@ const EmployeeSchema = new Schema(
       type: String,
       trim: true,
     },
+    designationHistory: {
+      type: Map,
+      of: String,
+      default: {},
+    },
     email: {
       type: String,
       trim: true,

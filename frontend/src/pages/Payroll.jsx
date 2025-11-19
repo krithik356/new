@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
+import YearSelector from '../components/YearSelector.jsx'
 import { apiClient, ApiError } from '../services/apiClient.js'
 import { useAuth } from '../providers/AuthProvider.jsx'
 
@@ -31,6 +32,23 @@ const currencyFormatter = new Intl.NumberFormat('en-IN', {
   maximumFractionDigits: 0,
 })
 
+const YEAR_OPTIONS = [2025, 2024, 2023]
+
+const ALL_MONTHS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+]
+
 function getMonthsForCycle(cycle) {
   const value = (cycle ?? '').toString().toLowerCase()
   if (value.includes('q1')) return QUARTER_MONTH_MAP.q1
@@ -52,15 +70,6 @@ function getMonthsForCycle(cycle) {
   return ['January', 'February', 'March']
 }
 
-function formatCycle(value) {
-  if (!value) return 'Default cycle'
-  return value
-    .toString()
-    .split(/[\s_-]+/)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ')
-}
-
 function formatCurrency(value) {
   if (typeof value !== 'number') return currencyFormatter.format(0)
   return currencyFormatter.format(value)
@@ -73,9 +82,19 @@ export default function PayrollPage() {
   const [error, setError] = useState(null)
   const [departmentFilter, setDepartmentFilter] = useState('all')
   const [monthFilter, setMonthFilter] = useState('all')
+  const [yearFilter, setYearFilter] = useState(YEAR_OPTIONS[0])
   const [limitedView, setLimitedView] = useState(false)
   const [costSheetLoading, setCostSheetLoading] = useState(false)
   const [costSheetError, setCostSheetError] = useState(null)
+  const [monthlySalaryData, setMonthlySalaryData] = useState([])
+  const [monthlySalaryError, setMonthlySalaryError] = useState(null)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('')
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false)
+  const [selectedEmployee, setSelectedEmployee] = useState(null)
+  const [selectedEmployeeHistory, setSelectedEmployeeHistory] = useState([])
+  const [employeeHistoryLoading, setEmployeeHistoryLoading] = useState(false)
+  const [employeeHistoryError, setEmployeeHistoryError] = useState(null)
 
   useEffect(() => {
     let cancelled = false
@@ -86,7 +105,7 @@ export default function PayrollPage() {
       setLimitedView(false)
 
       try {
-        const response = await apiClient.getEmployeesWithContributions(token)
+        const response = await apiClient.getEmployeesWithContributions(token, { year: yearFilter })
         if (!cancelled) {
           const employeesData = response.data ?? []
           setEmployees(employeesData)
@@ -116,7 +135,7 @@ export default function PayrollPage() {
     return () => {
       cancelled = true
     }
-  }, [token, user?.role, user?.department?.id])
+  }, [token, user?.role, user?.department?.id, yearFilter])
 
   useEffect(() => {
     if (user?.role === 'HOD' && user?.department?.id) {
@@ -124,21 +143,95 @@ export default function PayrollPage() {
     }
   }, [user?.role, user?.department?.id])
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm.trim())
+    }, 350)
+    return () => clearTimeout(timer)
+  }, [searchTerm])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadMonthlySalaries() {
+      if (monthFilter === 'all') {
+        setMonthlySalaryData([])
+        setMonthlySalaryError(null)
+        return
+      }
+
+      setMonthlySalaryError(null)
+
+      try {
+        const params = {
+          month: monthFilter,
+          year: yearFilter,
+        }
+
+        if (departmentFilter !== 'all') {
+          params.departmentId = departmentFilter
+        }
+
+        const response = await apiClient.getMonthlySalaries(token, params)
+        if (!cancelled) {
+          setMonthlySalaryData(response.data ?? [])
+        }
+      } catch (err) {
+        if (!cancelled) {
+          if (err instanceof ApiError && err.status === 404) {
+            setMonthlySalaryError(null)
+          } else {
+            setMonthlySalaryError(err?.message ?? 'Unable to load monthly salaries.')
+          }
+          setMonthlySalaryData([])
+        }
+      } finally {
+        // intentional no-op
+      }
+    }
+
+    loadMonthlySalaries()
+
+    return () => {
+      cancelled = true
+    }
+  }, [token, monthFilter, yearFilter, departmentFilter])
+
   const employeesWithMonthlyContributions = useMemo(() => {
     return employees.map((employee) => {
-      const monthlyContributions =
-        employee.contributions?.flatMap((contribution) => {
-          const months = getMonthsForCycle(contribution.cycle)
-          return months.map((monthLabel) => ({
-            ...contribution,
-            monthLabel,
-            monthKey: `${contribution._id || contribution.id || contribution.cycle}-${monthLabel}`,
-          }))
+      const contributionsForYear =
+        employee.contributions?.filter((contribution) => {
+          const contributionYear =
+            typeof contribution.year === 'number' ? contribution.year : YEAR_OPTIONS[0]
+          return contributionYear === yearFilter
         }) ?? []
+
+      const monthlyContributions = contributionsForYear.flatMap((contribution) => {
+        const months = getMonthsForCycle(contribution.cycle)
+        return months.map((monthLabel) => ({
+          ...contribution,
+          monthLabel,
+          monthKey: `${contribution._id || contribution.id || contribution.cycle}-${monthLabel}`,
+        }))
+      })
 
       return { ...employee, monthlyContributions }
     })
-  }, [employees])
+  }, [employees, yearFilter])
+
+  const searchResults = useMemo(() => {
+    if (!debouncedSearchTerm) {
+      return []
+    }
+    const term = debouncedSearchTerm.toLowerCase()
+    return employeesWithMonthlyContributions
+      .filter((employee) => {
+        const nameMatch = employee.name?.toLowerCase().includes(term)
+        const idMatch = employee.empId?.toLowerCase().includes(term)
+        return nameMatch || idMatch
+      })
+      .slice(0, 8)
+  }, [debouncedSearchTerm, employeesWithMonthlyContributions])
 
   const availableMonths = useMemo(() => {
     const set = new Set()
@@ -206,19 +299,182 @@ export default function PayrollPage() {
     })
   }, [departmentFilter, employeesWithMonthlyContributions])
 
+  const monthlySalaryMap = useMemo(() => {
+    const map = new Map()
+    monthlySalaryData.forEach((entry) => {
+      const employeeId =
+        entry.employee?.id || entry.employee?._id || entry.employee?.employee || entry.employee
+      if (employeeId) {
+        map.set(String(employeeId), entry.amount ?? 0)
+      }
+    })
+    return map
+  }, [monthlySalaryData])
+
+  const isMonthSpecific = monthFilter !== 'all'
+
+  const employeesForMetrics = useMemo(() => {
+    if (!isMonthSpecific) {
+      return employeesInScope
+    }
+
+    const activeEmployees = employeesInScope.filter((employee) =>
+      employee.monthlyContributions?.some(
+        (contribution) => contribution.monthLabel === monthFilter
+      )
+    )
+
+    return activeEmployees.length > 0 ? activeEmployees : employeesInScope
+  }, [employeesInScope, isMonthSpecific, monthFilter])
+
+  const computeEmployeeSalary = useCallback((employee) => {
+    if (!isMonthSpecific) {
+      return employee.salary ?? 0
+    }
+
+    const employeeId = employee._id || employee.id
+    if (!employeeId) {
+      return Math.round(((employee.salary ?? 0) / 12) || 0)
+    }
+
+    if (monthlySalaryMap.has(String(employeeId))) {
+      return monthlySalaryMap.get(String(employeeId)) ?? 0
+    }
+
+    return Math.round(((employee.salary ?? 0) / 12) || 0)
+  }, [isMonthSpecific, monthlySalaryMap])
+
+  const getRoleForYear = useCallback(
+    (employee) => {
+      const history = employee.designationHistory || {}
+      return (
+        history?.[yearFilter] ??
+        history?.[String(yearFilter)] ??
+        employee.designation ??
+        '—'
+      )
+    },
+    [yearFilter]
+  )
+
+  const buildEmployeeHistoryRows = useCallback((employeeData) => {
+    if (!employeeData) {
+      setSelectedEmployeeHistory([])
+      return
+    }
+
+    const contributionMap = new Map()
+    employeeData.monthlyContributions?.forEach((entry) => {
+      if (entry?.monthLabel) {
+        contributionMap.set(entry.monthLabel, entry)
+      }
+    })
+
+    const monthlySalaryValue = Math.round(((employeeData.salary ?? 0) / 12) || 0)
+
+    const rows = ALL_MONTHS.map((month, index) => {
+      const contribution = contributionMap.get(month)
+      const academy = typeof contribution?.academy === 'number' ? contribution.academy : null
+      const intensive = typeof contribution?.intensive === 'number' ? contribution.intensive : null
+      const niat = typeof contribution?.niat === 'number' ? contribution.niat : null
+      const total =
+        academy === null && intensive === null && niat === null
+          ? null
+          : (academy || 0) + (intensive || 0) + (niat || 0)
+
+      return {
+        month,
+        academy,
+        intensive,
+        niat,
+        total,
+        salary: monthlySalaryValue,
+        cycle: `Q${Math.floor(index / 3) + 1}`,
+      }
+    })
+
+    setSelectedEmployeeHistory(rows)
+  }, [])
+
+  const ensureEmployeeData = useCallback(
+    async (employeeId) => {
+      let found = employeesWithMonthlyContributions.find(
+        (employee) => String(employee._id || employee.id) === String(employeeId)
+      )
+
+      if (found) {
+        return found
+      }
+
+      const response = await apiClient.getEmployeesWithContributions(token, { year: yearFilter })
+      const refreshedEmployees = response.data ?? []
+      setEmployees(refreshedEmployees)
+      found = refreshedEmployees.find(
+        (employee) => String(employee._id || employee.id) === String(employeeId)
+      )
+      return found || null
+    },
+    [employeesWithMonthlyContributions, token, yearFilter]
+  )
+
+  const handleEmployeeSelect = useCallback(
+    async (employee) => {
+      const employeeId = employee._id || employee.id
+      if (!employeeId) return
+
+      setShowSearchDropdown(false)
+      setSearchTerm(employee.name || employee.empId || '')
+      setEmployeeHistoryLoading(true)
+      setEmployeeHistoryError(null)
+
+      try {
+        const enrichedEmployee = await ensureEmployeeData(employeeId)
+        if (!enrichedEmployee) {
+          setEmployeeHistoryError('Unable to load employee history.')
+          setEmployeeHistoryLoading(false)
+          return
+        }
+        setSelectedEmployee(enrichedEmployee)
+        buildEmployeeHistoryRows(enrichedEmployee)
+      } catch (err) {
+        setEmployeeHistoryError(err?.message ?? 'Unable to load employee history.')
+      } finally {
+        setEmployeeHistoryLoading(false)
+      }
+    },
+    [ensureEmployeeData, buildEmployeeHistoryRows]
+  )
+
+  const handleClearSelectedEmployee = () => {
+    setSelectedEmployee(null)
+    setSelectedEmployeeHistory([])
+    setSearchTerm('')
+    setEmployeeHistoryError(null)
+  }
+
+  const handleSearchBlur = useCallback(() => {
+    setTimeout(() => {
+      setShowSearchDropdown(false)
+    }, 150)
+  }, [])
+
   const totalCost = useMemo(
-    () => employeesInScope.reduce((sum, employee) => sum + (employee.salary ?? 0), 0),
-    [employeesInScope]
+    () => employeesForMetrics.reduce((sum, employee) => sum + computeEmployeeSalary(employee), 0),
+    [employeesForMetrics, computeEmployeeSalary]
   )
 
-  const averageSalary = employeesInScope.length
-    ? totalCost / employeesInScope.length
-    : 0
+  const averageSalary = useMemo(() => {
+    if (employeesForMetrics.length === 0) {
+      return 0
+    }
+    return totalCost / employeesForMetrics.length
+  }, [employeesForMetrics.length, totalCost])
 
-  const highestSalary = employeesInScope.reduce(
-    (max, employee) => Math.max(max, employee.salary ?? 0),
-    0
-  )
+  const highestSalary = useMemo(() => {
+    return employeesForMetrics.reduce((max, employee) => {
+      return Math.max(max, computeEmployeeSalary(employee))
+    }, 0)
+  }, [employeesForMetrics, computeEmployeeSalary])
 
   const monthToCycleMap = useMemo(() => {
     const map = new Map()
@@ -301,6 +557,117 @@ export default function PayrollPage() {
       ) : null}
 
       <section className="space-y-4 rounded-3xl border border-slate-800/70 bg-slate-900/60 p-6 shadow-inner shadow-black/30">
+        <div className="max-w-xl">
+          <label className="text-xs font-medium uppercase tracking-[0.4em] text-slate-500">Employee search</label>
+          <div className="relative mt-2">
+            <input
+              value={searchTerm}
+              onChange={(event) => {
+                setSearchTerm(event.target.value)
+                setShowSearchDropdown(true)
+              }}
+              onFocus={() => setShowSearchDropdown(true)}
+              onBlur={handleSearchBlur}
+              placeholder="Search by name or employee ID"
+              className="w-full rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-2 text-sm text-slate-100 shadow-inner shadow-black/30 focus:border-emerald-400/80 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+            />
+            {showSearchDropdown && debouncedSearchTerm ? (
+              <div className="absolute left-0 right-0 z-20 mt-2 max-h-72 overflow-y-auto rounded-2xl border border-slate-800/70 bg-slate-950/95 shadow-2xl">
+                {searchResults.length === 0 ? (
+                  <p className="px-4 py-3 text-sm text-slate-500">No matching employees found.</p>
+                ) : (
+                  searchResults.map((employee) => (
+                    <button
+                      key={employee._id || employee.id}
+                      type="button"
+                      onMouseDown={() => handleEmployeeSelect(employee)}
+                      className="flex w-full items-center justify-between px-4 py-3 text-left text-sm text-slate-200 hover:bg-slate-900/80"
+                    >
+                      <span className="font-semibold text-slate-50">{employee.name}</span>
+                      <span className="text-xs text-slate-400">{employee.empId || '—'}</span>
+                    </button>
+                  ))
+                )}
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        {selectedEmployee ? (
+          <div className="space-y-4 rounded-2xl border border-slate-800/70 bg-slate-950/40 p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-50">{selectedEmployee.name}</h3>
+                <p className="text-sm text-slate-400">
+                  {selectedEmployee.empId ? `ID: ${selectedEmployee.empId}` : '—'}
+                  {selectedEmployee.email ? ` · ${selectedEmployee.email}` : ''}
+                </p>
+                <p className="text-sm text-slate-400">
+                  {selectedEmployee.department?.name || '—'}
+                  {' · '}
+                  {getRoleForYear(selectedEmployee)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleClearSelectedEmployee}
+                className="inline-flex items-center justify-center rounded-2xl border border-slate-700 bg-slate-800/60 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:border-slate-600 hover:bg-slate-800"
+              >
+                Clear search
+              </button>
+            </div>
+
+            {employeeHistoryLoading ? (
+              <p className="text-sm text-slate-400">Loading history…</p>
+            ) : employeeHistoryError ? (
+              <p className="text-sm text-red-300">{employeeHistoryError}</p>
+            ) : selectedEmployeeHistory.length === 0 ? (
+              <p className="text-sm text-slate-400">No contribution history available for the selected employee.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-800/60 text-left text-sm text-slate-200">
+                  <thead className="bg-slate-900/40 text-xs uppercase tracking-widest text-slate-500">
+                    <tr>
+                      <th className="px-4 py-3 font-semibold">Month</th>
+                      <th className="px-4 py-3 font-semibold">Academy %</th>
+                      <th className="px-4 py-3 font-semibold">Intensive %</th>
+                      <th className="px-4 py-3 font-semibold">NIAT %</th>
+                      <th className="px-4 py-3 font-semibold">Total %</th>
+                      <th className="px-4 py-3 font-semibold">Salary</th>
+                      <th className="px-4 py-3 font-semibold">Cycle</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/40">
+                    {selectedEmployeeHistory.map((row) => (
+                      <tr key={`${selectedEmployee._id || selectedEmployee.id}-${row.month}`} className="bg-slate-950/30">
+                        <td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-50">{row.month}</td>
+                        <td className="whitespace-nowrap px-4 py-3 text-center text-slate-100">
+                          {row.academy !== null ? `${row.academy}%` : '—'}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-center text-slate-100">
+                          {row.intensive !== null ? `${row.intensive}%` : '—'}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-center text-slate-100">
+                          {row.niat !== null ? `${row.niat}%` : '—'}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-center text-emerald-300">
+                          {row.total !== null ? `${row.total}%` : '—'}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-slate-100">
+                          {row.salary ? formatCurrency(row.salary) : '—'}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-slate-400">{row.cycle}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        ) : null}
+      </section>
+
+      <section className="space-y-4 rounded-3xl border border-slate-800/70 bg-slate-900/60 p-6 shadow-inner shadow-black/30">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.4em] text-slate-500">Cost centre</p>
@@ -322,6 +689,7 @@ export default function PayrollPage() {
                 ))}
               </select>
             </label>
+            <YearSelector value={yearFilter} options={YEAR_OPTIONS} onChange={setYearFilter} />
 
             {user?.role === 'Admin' && (
               <label className="flex flex-col text-xs font-medium uppercase tracking-widest text-slate-500">
@@ -344,15 +712,31 @@ export default function PayrollPage() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <CostStat title="Total salary cost" value={formatCurrency(totalCost)} helper="Visible employees" />
-          <CostStat title="Average salary" value={formatCurrency(Math.round(averageSalary))} helper="Per employee" />
-          <CostStat title="Highest salary" value={formatCurrency(highestSalary)} helper="Top earner" />
+          <CostStat
+            title="Total salary cost"
+            value={formatCurrency(totalCost)}
+            helper={isMonthSpecific ? `For ${monthFilter}` : 'Visible employees'}
+          />
+          <CostStat
+            title="Average salary"
+            value={formatCurrency(Math.round(averageSalary))}
+            helper={isMonthSpecific ? `Per employee in ${monthFilter}` : 'Per employee'}
+          />
+          <CostStat
+            title="Highest salary"
+            value={formatCurrency(highestSalary)}
+            helper={isMonthSpecific ? `Top earner in ${monthFilter}` : 'Top earner'}
+          />
           <CostStat
             title="Headcount"
             value={employeesInScope.length}
             helper={departmentFilter === 'all' ? 'Across all departments' : 'Filtered department'}
           />
         </div>
+
+        {isMonthSpecific && monthlySalaryError ? (
+          <p className="text-sm text-red-300">{monthlySalaryError}</p>
+        ) : null}
 
         <div className="rounded-2xl border border-slate-800/70 bg-slate-950/30 p-4 shadow-inner shadow-black/20">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -413,79 +797,115 @@ export default function PayrollPage() {
                   </p>
                 </div>
 
-                <div className="divide-y divide-slate-800/70">
-                  {department.employees.map((employee) => {
-                    const contributionSet =
-                      monthFilter === 'all'
-                        ? employee.monthlyContributions
-                        : employee.monthlyContributions.filter(
-                            (contribution) => contribution.monthLabel === monthFilter
-                          )
+                <div className="px-6 py-6 space-y-6">
+                  {(() => {
+                    const monthCandidates =
+                      monthFilter === 'all' ? availableMonths : [monthFilter]
 
-                    return (
-                      <div key={employee._id || employee.id} className="p-6">
-                        <div className="mb-4 flex items-start justify-between">
-                          <div>
-                            <h4 className="text-lg font-semibold text-slate-50">{employee.name}</h4>
-                            <div className="mt-1 flex flex-wrap gap-3 text-sm text-slate-400">
-                              <span>ID: {employee.empId}</span>
-                              {employee.designation && <span>• {employee.designation}</span>}
-                              {employee.email && <span>• {employee.email}</span>}
-                              <span>• Salary: {formatCurrency(employee.salary ?? 0)}</span>
-                            </div>
-                          </div>
-                          <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-200">
-                            {contributionSet.length} contribution{contributionSet.length !== 1 ? 's' : ''}
-                          </span>
-                        </div>
-
-                        {contributionSet.length === 0 ? (
-                          <p className="text-sm text-slate-500">No contributions for the selected month.</p>
-                        ) : (
-                          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                            {contributionSet.map((contribution) => (
-                              <div
-                                key={contribution.monthKey}
-                                className="rounded-2xl border border-slate-800/70 bg-slate-950/60 p-4"
-                              >
-                                <div className="mb-3 flex items-center justify-between">
-                                  <div>
-                                    <p className="text-xs font-semibold uppercase tracking-widest text-emerald-300/80">
-                                      {contribution.monthLabel}
-                                    </p>
-                                    <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
-                                      {formatCycle(contribution.cycle)}
-                                    </p>
-                                  </div>
-                                </div>
-                                <div className="space-y-2">
-                                  <ContributionMetric label="Academy" value={contribution.academy} />
-                                  <ContributionMetric label="Intensive" value={contribution.intensive} />
-                                  <ContributionMetric label="NIAT" value={contribution.niat} />
-                                  <div className="mt-3 border-t border-slate-800/70 pt-2">
-                                    <div className="flex items-center justify-between text-xs">
-                                      <span className="text-slate-500">Total</span>
-                                      <span className="font-bold text-emerald-300">
-                                        {contribution.academy + contribution.intensive + contribution.niat}%
-                                      </span>
-                                    </div>
-                                  </div>
-                                </div>
-                                {contribution.remarks ? (
-                                  <p className="mt-3 text-xs text-slate-500">{contribution.remarks}</p>
-                                ) : null}
-                                <p className="mt-2 text-xs text-slate-600">
-                                  {contribution.submittedAt
-                                    ? new Date(contribution.submittedAt).toLocaleDateString()
-                                    : '—'}
-                                </p>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                    const departmentMonths = monthCandidates.filter((month) =>
+                      department.employees.some((employee) =>
+                        employee.monthlyContributions?.some(
+                          (contribution) => contribution.monthLabel === month
+                        )
+                      )
                     )
-                  })}
+
+                    if (departmentMonths.length === 0) {
+                      return (
+                        <p className="rounded-2xl border border-slate-800/70 bg-slate-950/40 px-4 py-6 text-sm text-slate-400">
+                          No contributions recorded for the selected filters.
+                        </p>
+                      )
+                    }
+
+                    return departmentMonths.map((month) => (
+                      <div
+                        key={`${department.id}-${month}`}
+                        className="space-y-4 rounded-2xl border border-slate-800/70 bg-slate-950/40 p-4"
+                      >
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.35em] text-slate-500">Month</p>
+                            <h4 className="text-lg font-semibold text-slate-50">{month}</h4>
+                          </div>
+                          <p className="text-xs text-slate-500">
+                            Showing {department.employees.length} employee{department.employees.length !== 1 ? 's' : ''} ·{' '}
+                            {department.name}
+                          </p>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="min-w-full divide-y divide-slate-800/60 text-left text-sm text-slate-200">
+                            <thead className="bg-slate-900/40 text-xs uppercase tracking-widest text-slate-500">
+                              <tr>
+                                <th className="px-4 py-3 font-semibold">Employee ID</th>
+                                <th className="px-4 py-3 font-semibold">Name</th>
+                                <th className="px-4 py-3 font-semibold">Role / Designation</th>
+                                <th className="px-4 py-3 font-semibold">Email</th>
+                                <th className="px-4 py-3 font-semibold">Salary</th>
+                                <th className="px-4 py-3 font-semibold">Academy %</th>
+                                <th className="px-4 py-3 font-semibold">Intensive %</th>
+                                <th className="px-4 py-3 font-semibold">NIAT %</th>
+                                <th className="px-4 py-3 font-semibold">Total %</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-800/40">
+                              {department.employees.map((employee) => {
+                                const contribution = employee.monthlyContributions?.find(
+                                  (entry) => entry.monthLabel === month
+                                )
+
+                                const academy = typeof contribution?.academy === 'number' ? contribution.academy : null
+                                const intensive =
+                                  typeof contribution?.intensive === 'number' ? contribution.intensive : null
+                                const niat = typeof contribution?.niat === 'number' ? contribution.niat : null
+                                const total =
+                                  academy === null && intensive === null && niat === null
+                                    ? null
+                                    : (academy || 0) + (intensive || 0) + (niat || 0)
+
+                                const roleDisplay = getRoleForYear(employee)
+
+                                const displaySalary =
+                                  monthFilter === 'all'
+                                    ? Math.round(((employee.salary ?? 0) / 12) || 0)
+                                    : computeEmployeeSalary(employee)
+
+                                return (
+                                  <tr key={`${employee._id || employee.id}-${month}`} className="bg-slate-950/30">
+                                    <td className="whitespace-nowrap px-4 py-3 text-slate-400">{employee.empId || '—'}</td>
+                                    <td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-50">
+                                      {employee.name}
+                                    </td>
+                                    <td className="whitespace-nowrap px-4 py-3 text-slate-400">
+                                      {roleDisplay}
+                                    </td>
+                                    <td className="whitespace-nowrap px-4 py-3 text-slate-400">
+                                      {employee.email || '—'}
+                                    </td>
+                                    <td className="whitespace-nowrap px-4 py-3 text-slate-100">
+                                      {formatCurrency(displaySalary)}
+                                    </td>
+                                    <td className="whitespace-nowrap px-4 py-3 text-center text-slate-100">
+                                      {academy !== null ? `${academy}%` : '—'}
+                                    </td>
+                                    <td className="whitespace-nowrap px-4 py-3 text-center text-slate-100">
+                                      {intensive !== null ? `${intensive}%` : '—'}
+                                    </td>
+                                    <td className="whitespace-nowrap px-4 py-3 text-center text-slate-100">
+                                      {niat !== null ? `${niat}%` : '—'}
+                                    </td>
+                                    <td className="whitespace-nowrap px-4 py-3 text-center font-semibold text-emerald-300">
+                                      {total !== null ? `${total}%` : '—'}
+                                    </td>
+                                  </tr>
+                                )
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ))
+                  })()}
                 </div>
               </div>
             ))}
@@ -503,14 +923,5 @@ function CostStat({ title, value, helper }) {
       <p className="mt-3 text-2xl font-semibold text-slate-50">{value}</p>
       <p className="mt-1 text-xs text-slate-400">{helper}</p>
     </article>
-  )
-}
-
-function ContributionMetric({ label, value }) {
-  return (
-    <div className="flex items-center justify-between text-sm">
-      <span className="text-slate-400">{label}</span>
-      <span className="font-semibold text-slate-100">{value}%</span>
-    </div>
   )
 }

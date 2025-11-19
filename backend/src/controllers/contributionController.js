@@ -3,9 +3,28 @@ const { Contribution } = require("../models/Contribution");
 const { Department } = require("../models/Department");
 const { validateContributionPayload } = require("../utils/validators");
 
+const DEFAULT_YEAR = Number(process.env.DEFAULT_CONTRIBUTION_YEAR || 2025);
+
+function normalizeYear(yearValue) {
+  if (yearValue === undefined || yearValue === null) {
+    return DEFAULT_YEAR;
+  }
+
+  const parsed = parseInt(yearValue, 10);
+  if (Number.isNaN(parsed)) {
+    return DEFAULT_YEAR;
+  }
+
+  if (parsed < 2000 || parsed > 2100) {
+    return DEFAULT_YEAR;
+  }
+
+  return parsed;
+}
+
 async function listContributions(req, res, next) {
   try {
-    const { cycle } = req.query;
+    const { cycle, year } = req.query;
     const filter = {};
 
     // HOD can only see their department's contributions
@@ -25,6 +44,7 @@ async function listContributions(req, res, next) {
     if (cycle) {
       filter.cycle = cycle;
     }
+    filter.year = normalizeYear(year);
     const contributions = await Contribution.find(filter)
       .populate({
         path: "department",
@@ -50,6 +70,8 @@ async function listContributions(req, res, next) {
 async function getContributionByDepartment(req, res, next) {
   try {
     const { departmentId } = req.params;
+    const { year } = req.query;
+    const targetYear = normalizeYear(year);
 
     if (!mongoose.isValidObjectId(departmentId)) {
       return res.status(400).json({
@@ -78,6 +100,7 @@ async function getContributionByDepartment(req, res, next) {
     const contribution = await Contribution.findOne({
       department: departmentId,
       employee: null, // Department-level contribution
+      year: targetYear,
     })
       .populate("department", "name code")
       .populate("submittedBy", "name email role");
@@ -100,7 +123,7 @@ async function getContributionByDepartment(req, res, next) {
 
 async function createContribution(req, res, next) {
   try {
-    const { department, academy, intensive, niat, remarks, cycle } = req.body;
+    const { department, academy, intensive, niat, remarks, cycle, year } = req.body;
 
     if (!department) {
       return res.status(400).json({
@@ -146,10 +169,12 @@ async function createContribution(req, res, next) {
     }
 
     const cycleKey = cycle || "default";
+    const targetYear = normalizeYear(year);
 
     const existing = await Contribution.findOne({
       department,
       cycle: cycleKey,
+      year: targetYear,
     });
 
     if (existing) {
@@ -168,6 +193,7 @@ async function createContribution(req, res, next) {
       niat,
       remarks,
       cycle: cycleKey,
+      year: targetYear,
       submittedBy: req.user.id,
       submittedAt: new Date(),
     });
@@ -188,7 +214,7 @@ async function createContribution(req, res, next) {
 async function updateContribution(req, res, next) {
   try {
     const { id } = req.params;
-    const { academy, intensive, niat, remarks, cycle } = req.body;
+    const { academy, intensive, niat, remarks, cycle, year } = req.body;
 
     if (!mongoose.isValidObjectId(id)) {
       return res.status(400).json({
@@ -238,6 +264,7 @@ async function updateContribution(req, res, next) {
     contribution.remarks =
       remarks !== undefined ? remarks : contribution.remarks;
     contribution.cycle = cycle || contribution.cycle;
+    contribution.year = year ? normalizeYear(year) : contribution.year || DEFAULT_YEAR;
     contribution.submittedBy = req.user.id;
     contribution.submittedAt = new Date();
 
@@ -289,7 +316,7 @@ async function deleteContribution(req, res, next) {
 
 async function getEmployeesWithContributions(req, res, next) {
   try {
-    const { cycle } = req.query;
+    const { cycle, year } = req.query;
     const { Employee } = require("../models/Employee");
     const { Contribution } = require("../models/Contribution");
 
@@ -326,6 +353,7 @@ async function getEmployeesWithContributions(req, res, next) {
     if (cycle) {
       contributionFilter.cycle = cycle;
     }
+    contributionFilter.year = normalizeYear(year);
 
     const contributions = await Contribution.find(contributionFilter)
       .populate("employee", "name empId designation email")

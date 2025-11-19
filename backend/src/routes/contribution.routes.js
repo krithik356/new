@@ -21,6 +21,7 @@ router.get(
   [
     authorizeRole("Admin", "HOD"),
     query("cycle").optional().isString(),
+    query("year").optional().isInt({ min: 2000, max: 2100 }),
     validateRequest,
   ],
   listContributions
@@ -31,6 +32,7 @@ router.get(
   [
     authorizeRole("Admin", "HOD"),
     query("cycle").optional().isString(),
+    query("year").optional().isInt({ min: 2000, max: 2100 }),
     validateRequest,
   ],
   getEmployeesWithContributions
@@ -41,6 +43,7 @@ router.get(
   [
     authorizeRole("Admin", "HOD"),
     param("departmentId").isMongoId(),
+    query("year").optional().isInt({ min: 2000, max: 2100 }),
     validateRequest,
   ],
   getContributionByDepartment
@@ -56,6 +59,7 @@ router.post(
     body("niat").isNumeric().withMessage("NIAT must be numeric."),
     body("remarks").optional().isString(),
     body("cycle").optional().isString(),
+    body("year").optional().isInt({ min: 2000, max: 2100 }),
     validateRequest,
   ],
   createContribution
@@ -71,6 +75,7 @@ router.put(
     body("niat").optional().isNumeric(),
     body("remarks").optional().isString(),
     body("cycle").optional().isString(),
+    body("year").optional().isInt({ min: 2000, max: 2100 }),
     validateRequest,
   ],
   updateContribution

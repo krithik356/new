@@ -60,14 +60,26 @@ export const apiClient = {
 
   getDepartmentById: (token, departmentId) => request(`/api/departments/${departmentId}`, { token }),
 
-  getContributions: (token, { cycle } = {}) =>
-    request(`/api/contributions${cycle ? `/all?cycle=${encodeURIComponent(cycle)}` : '/all'}`, { token }),
+  getContributions: (token, { cycle, year } = {}) => {
+    const params = new URLSearchParams()
+    if (cycle) params.append('cycle', cycle)
+    if (year) params.append('year', year)
+    const query = params.toString() ? `/all?${params.toString()}` : '/all'
+    return request(`/api/contributions${query}`, { token })
+  },
 
-  getEmployeesWithContributions: (token, { cycle } = {}) =>
-    request(`/api/contributions/employees${cycle ? `?cycle=${encodeURIComponent(cycle)}` : ''}`, { token }),
+  getEmployeesWithContributions: (token, { cycle, year } = {}) => {
+    const params = new URLSearchParams()
+    if (cycle) params.append('cycle', cycle)
+    if (year) params.append('year', year)
+    const query = params.toString() ? `?${params.toString()}` : ''
+    return request(`/api/contributions/employees${query}`, { token })
+  },
 
-  getContributionByDepartment: (token, departmentId) =>
-    request(`/api/contributions/department/${departmentId}`, { token }),
+  getContributionByDepartment: (token, departmentId, { year } = {}) => {
+    const query = year ? `?year=${year}` : ''
+    return request(`/api/contributions/department/${departmentId}${query}`, { token })
+  },
 
   exportDepartmentReport: async (token, { cycle } = {}) => {
     const url = `/api/contributions/export/departments${cycle ? `?cycle=${encodeURIComponent(cycle)}` : ''}`
@@ -174,6 +186,44 @@ export const apiClient = {
     window.URL.revokeObjectURL(downloadUrl)
 
     return { success: true, filename }
+  },
+
+  // Monthly Salary endpoints
+  createOrUpdateMonthlySalary: (token, employeeId, { month, year, salary, cycle }) =>
+    request(`/api/monthly-salaries/employee/${employeeId}`, {
+      method: 'PUT',
+      body: { month, year, salary, cycle },
+      token,
+    }),
+
+  getEmployeeMonthlySalaries: (token, employeeId, { year } = {}) => {
+    const query = year ? `?year=${year}` : ''
+    return request(`/api/monthly-salaries/employee/${employeeId}${query}`, { token })
+  },
+
+  getDepartmentMonthlySalaries: (token, departmentId, { month, year, cycle } = {}) => {
+    const params = new URLSearchParams()
+    if (month) params.append('month', month)
+    if (year) params.append('year', year)
+    if (cycle) params.append('cycle', cycle)
+    const query = params.toString() ? `?${params.toString()}` : ''
+    return request(`/api/monthly-salaries/department/${departmentId}${query}`, { token })
+  },
+
+  bulkCreateMonthlySalaries: (token, salaries) =>
+    request('/api/monthly-salaries/bulk', {
+      method: 'POST',
+      body: { salaries },
+      token,
+    }),
+
+  getMonthlySalaries: (token, { month, year, departmentId } = {}) => {
+    const params = new URLSearchParams()
+    if (month) params.append('month', month)
+    if (year) params.append('year', year)
+    if (departmentId) params.append('departmentId', departmentId)
+    const query = params.toString() ? `?${params.toString()}` : ''
+    return request(`/api/monthly-salaries${query}`, { token })
   },
 
 }

@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const Department = require("./Department");
 
 const { Schema } = mongoose;
 
@@ -51,6 +52,13 @@ const ContributionSchema = new Schema(
       index: true,
       trim: true,
     },
+    year: {
+      type: Number,
+      default: 2025,
+      index: true,
+      min: 2000,
+      max: 2100,
+    },
   },
   {
     timestamps: true,
@@ -59,7 +67,7 @@ const ContributionSchema = new Schema(
 
 // Unique index for department-level contributions (one per department per cycle)
 ContributionSchema.index(
-  { department: 1, cycle: 1 },
+  { department: 1, cycle: 1, year: 1 },
   {
     unique: true,
     partialFilterExpression: { employee: null },
@@ -69,7 +77,7 @@ ContributionSchema.index(
 
 // Unique index for employee-level contributions (one per employee per cycle)
 ContributionSchema.index(
-  { employee: 1, cycle: 1 },
+  { employee: 1, cycle: 1, year: 1 },
   {
     unique: true,
     partialFilterExpression: { employee: { $ne: null } },
