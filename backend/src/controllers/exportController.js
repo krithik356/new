@@ -1,4 +1,5 @@
 const ExcelJS = require("exceljs");
+const mongoose = require("mongoose");
 const { Contribution } = require("../models/Contribution");
 const { Department } = require("../models/Department");
 const { Employee } = require("../models/Employee");
@@ -80,10 +81,16 @@ async function exportDepartmentReport(req, res, next) {
 
     // Define columns
     sheet.columns = [
+      { header: "Employee ID", key: "empId", width: 15 },
+      { header: "Employee Name", key: "employeeName", width: 25 },
+      { header: "Designation", key: "designation", width: 20 },
+      { header: "Email", key: "email", width: 30 },
       { header: "Department", key: "department", width: 25 },
       { header: "Department Code", key: "code", width: 18 },
-      { header: "HOD Name", key: "hodName", width: 25 },
-      { header: "HOD Email", key: "hodEmail", width: 30 },
+    
+      // ✅ ADD THIS
+      { header: "Salary (INR)", key: "salary", width: 18 },
+    
       { header: "Cycle", key: "cycle", width: 15 },
       { header: "Academy %", key: "academy", width: 12 },
       { header: "Intensive %", key: "intensive", width: 12 },
@@ -93,6 +100,7 @@ async function exportDepartmentReport(req, res, next) {
       { header: "Submitted At", key: "submittedAt", width: 24 },
       { header: "Remarks", key: "remarks", width: 40 },
     ];
+    
 
     // Group contributions by department
     const departmentMap = new Map();
@@ -207,6 +215,14 @@ async function exportDepartmentEmployeeContributions(req, res, next) {
       });
     }
 
+    // Validate departmentId is a valid ObjectId
+    if (!mongoose.isValidObjectId(departmentId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid department ID. Please contact an administrator to update your department assignment.",
+      });
+    }
+
     // Get department details
     const department = await Department.findById(departmentId)
       .populate("hod", "name email")
@@ -215,7 +231,7 @@ async function exportDepartmentEmployeeContributions(req, res, next) {
     if (!department) {
       return res.status(404).json({
         success: false,
-        message: "Department not found.",
+        message: "Department not found. Your assigned department may have been removed. Please contact an administrator.",
       });
     }
 
@@ -240,7 +256,7 @@ async function exportDepartmentEmployeeContributions(req, res, next) {
 
     // Get all employee contributions
     const contributions = await Contribution.find(contributionFilter)
-      .populate("employee", "name empId designation email")
+      .populate("employee", "name empId designation email salary")
       .populate("department", "name code")
       .populate("submittedBy", "name email")
       .sort({ cycle: -1, submittedAt: -1 })
@@ -266,6 +282,10 @@ async function exportDepartmentEmployeeContributions(req, res, next) {
       { header: "Email", key: "email", width: 30 },
       { header: "Department", key: "department", width: 25 },
       { header: "Department Code", key: "code", width: 18 },
+    
+      // ✅ ADD THIS
+      { header: "Salary (INR)", key: "salary", width: 18 },
+    
       { header: "Cycle", key: "cycle", width: 15 },
       { header: "Academy %", key: "academy", width: 12 },
       { header: "Intensive %", key: "intensive", width: 12 },
@@ -275,6 +295,7 @@ async function exportDepartmentEmployeeContributions(req, res, next) {
       { header: "Submitted At", key: "submittedAt", width: 24 },
       { header: "Remarks", key: "remarks", width: 40 },
     ];
+    
 
     // Group contributions by employee
     const employeeMap = new Map();
@@ -303,6 +324,7 @@ async function exportDepartmentEmployeeContributions(req, res, next) {
           email: empData.email || "—",
           department: empData.department?.name || department.name,
           code: empData.department?.code || department.code || "—",
+          salary: empData.salary || 0,
           cycle: "—",
           academy: "—",
           intensive: "—",
@@ -322,6 +344,7 @@ async function exportDepartmentEmployeeContributions(req, res, next) {
             email: contrib.employee?.email || empData.email || "—",
             department: contrib.department?.name || department.name,
             code: contrib.department?.code || department.code || "—",
+            salary: empData.salary || contrib.employee?.salary || 0,
             cycle: contrib.cycle || "—",
             academy: contrib.academy || 0,
             intensive: contrib.intensive || 0,
@@ -366,6 +389,23 @@ async function exportDepartmentEmployeeContributions(req, res, next) {
     sheet.getCell(`A${summaryRow + 3}`).font = { bold: true };
     sheet.mergeCells(`A${summaryRow + 3}:D${summaryRow + 3}`);
 
+    const totalSalary = employees.reduce(
+      (sum, emp) => sum + (emp.salary || 0),
+      0
+    );
+
+    const totalRow = sheet.addRow({
+      empId: "",
+      employeeName: "",
+      designation: "",
+      email: "",
+      department: "",
+      code: "Total Salary",
+      salary: totalSalary,
+    });
+    totalRow.font = { bold: true };
+    totalRow.getCell("salary").numFmt = "#,##0";
+
     const buffer = await workbook.xlsx.writeBuffer();
     const filename = cycle
       ? `employee_contributions_${department.name.replace(/\s+/g, "_")}_${cycle}.xlsx`
@@ -404,6 +444,14 @@ async function sendSheetToAdmin(req, res, next) {
       });
     }
 
+    // Validate departmentId is a valid ObjectId
+    if (!mongoose.isValidObjectId(departmentId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid department ID. Please contact an administrator to update your department assignment.",
+      });
+    }
+
     // Get department details
     const department = await Department.findById(departmentId)
       .populate("hod", "name email")
@@ -412,7 +460,7 @@ async function sendSheetToAdmin(req, res, next) {
     if (!department) {
       return res.status(404).json({
         success: false,
-        message: "Department not found.",
+        message: "Department not found. Your assigned department may have been removed. Please contact an administrator.",
       });
     }
 
@@ -435,7 +483,7 @@ async function sendSheetToAdmin(req, res, next) {
     }
 
     const contributions = await Contribution.find(contributionFilter)
-      .populate("employee", "name empId designation email")
+      .populate("employee", "name empId designation email salary")
       .populate("department", "name code")
       .populate("submittedBy", "name email")
       .sort({ cycle: -1, submittedAt: -1 })
@@ -460,6 +508,10 @@ async function sendSheetToAdmin(req, res, next) {
       { header: "Email", key: "email", width: 30 },
       { header: "Department", key: "department", width: 25 },
       { header: "Department Code", key: "code", width: 18 },
+    
+      // ✅ ADD THIS
+      { header: "Salary (INR)", key: "salary", width: 18 },
+    
       { header: "Cycle", key: "cycle", width: 15 },
       { header: "Academy %", key: "academy", width: 12 },
       { header: "Intensive %", key: "intensive", width: 12 },
@@ -469,6 +521,7 @@ async function sendSheetToAdmin(req, res, next) {
       { header: "Submitted At", key: "submittedAt", width: 24 },
       { header: "Remarks", key: "remarks", width: 40 },
     ];
+    
 
     const employeeMap = new Map();
     employees.forEach((emp) => {
@@ -494,6 +547,7 @@ async function sendSheetToAdmin(req, res, next) {
           email: empData.email || "—",
           department: empData.department?.name || department.name,
           code: empData.department?.code || department.code || "—",
+          salary: empData.salary || 0,
           cycle: "—",
           academy: "—",
           intensive: "—",
@@ -512,6 +566,7 @@ async function sendSheetToAdmin(req, res, next) {
             email: contrib.employee?.email || empData.email || "—",
             department: contrib.department?.name || department.name,
             code: contrib.department?.code || department.code || "—",
+            salary: empData.salary || 0,
             cycle: contrib.cycle || "—",
             academy: contrib.academy || 0,
             intensive: contrib.intensive || 0,
@@ -553,6 +608,23 @@ async function sendSheetToAdmin(req, res, next) {
     sheet.getCell(`A${summaryRow + 3}`).value = `Total Contributions: ${contributions.length}`;
     sheet.getCell(`A${summaryRow + 3}`).font = { bold: true };
     sheet.mergeCells(`A${summaryRow + 3}:D${summaryRow + 3}`);
+
+    const totalSalary = employees.reduce(
+      (sum, emp) => sum + (emp.salary || 0),
+      0
+    );
+
+    const totalRow = sheet.addRow({
+      empId: "",
+      employeeName: "",
+      designation: "",
+      email: "",
+      department: "",
+      code: "Total Salary",
+      salary: totalSalary,
+    });
+    totalRow.font = { bold: true };
+    totalRow.getCell("salary").numFmt = "#,##0";
 
     const buffer = await workbook.xlsx.writeBuffer();
     const filename = cycle
@@ -648,7 +720,7 @@ async function exportDepartmentEmployeeContributionsByAdmin(req, res, next) {
 
     // Get all employee contributions
     const contributions = await Contribution.find(contributionFilter)
-      .populate("employee", "name empId designation email")
+      .populate("employee", "name empId designation email salary")
       .populate("department", "name code")
       .populate("submittedBy", "name email")
       .sort({ cycle: -1, submittedAt: -1 })
@@ -674,6 +746,10 @@ async function exportDepartmentEmployeeContributionsByAdmin(req, res, next) {
       { header: "Email", key: "email", width: 30 },
       { header: "Department", key: "department", width: 25 },
       { header: "Department Code", key: "code", width: 18 },
+    
+      // ✅ ADD THIS
+      { header: "Salary (INR)", key: "salary", width: 18 },
+    
       { header: "Cycle", key: "cycle", width: 15 },
       { header: "Academy %", key: "academy", width: 12 },
       { header: "Intensive %", key: "intensive", width: 12 },
@@ -683,6 +759,7 @@ async function exportDepartmentEmployeeContributionsByAdmin(req, res, next) {
       { header: "Submitted At", key: "submittedAt", width: 24 },
       { header: "Remarks", key: "remarks", width: 40 },
     ];
+    
 
     // Group contributions by employee
     const employeeMap = new Map();
@@ -711,6 +788,7 @@ async function exportDepartmentEmployeeContributionsByAdmin(req, res, next) {
           email: empData.email || "—",
           department: empData.department?.name || department.name,
           code: empData.department?.code || department.code || "—",
+          salary: empData.salary || 0,
           cycle: "—",
           academy: "—",
           intensive: "—",
@@ -730,6 +808,7 @@ async function exportDepartmentEmployeeContributionsByAdmin(req, res, next) {
             email: contrib.employee?.email || empData.email || "—",
             department: contrib.department?.name || department.name,
             code: contrib.department?.code || department.code || "—",
+            salary: empData.salary || contrib.employee?.salary || 0,
             cycle: contrib.cycle || "—",
             academy: contrib.academy || 0,
             intensive: contrib.intensive || 0,
@@ -774,6 +853,23 @@ async function exportDepartmentEmployeeContributionsByAdmin(req, res, next) {
     sheet.getCell(`A${summaryRow + 3}`).font = { bold: true };
     sheet.mergeCells(`A${summaryRow + 3}:D${summaryRow + 3}`);
 
+    const totalSalary = employees.reduce(
+      (sum, emp) => sum + (emp.salary || 0),
+      0
+    );
+
+    const totalRow = sheet.addRow({
+      empId: "",
+      employeeName: "",
+      designation: "",
+      email: "",
+      department: "",
+      code: "Total Salary",
+      salary: totalSalary,
+    });
+    totalRow.font = { bold: true };
+    totalRow.getCell("salary").numFmt = "#,##0";
+
     const buffer = await workbook.xlsx.writeBuffer();
     const filename = cycle
       ? `${department.name.replace(/\s+/g, "_")}_employee_contributions_${cycle}.xlsx`
@@ -791,8 +887,8 @@ async function exportDepartmentEmployeeContributionsByAdmin(req, res, next) {
   }
 }
 
-module.exports = { 
-  exportContributions, 
+module.exports = {
+  exportContributions,
   exportDepartmentReport,
   exportDepartmentEmployeeContributions,
   sendSheetToAdmin,

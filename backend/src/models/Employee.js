@@ -29,6 +29,15 @@ const EmployeeSchema = new Schema(
       trim: true,
       lowercase: true,
     },
+    salary: {
+      type: Number,
+      min: 0,
+      default: function defaultSalary() {
+        const min = 35000;
+        const max = 120000;
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+      },
+    },
   },
   {
     timestamps: true,

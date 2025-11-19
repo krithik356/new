@@ -432,7 +432,7 @@ export default function DashboardPage() {
                     <p className="text-xs text-slate-500">Most recent submissions appear first.</p>
                   </div>
                   <Link
-                    to="/contributions"
+                    to="/payroll"
                     className="inline-flex items-center gap-2 rounded-xl border border-slate-800 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-slate-700 hover:bg-slate-800/80"
                   >
                     View all →
@@ -526,9 +526,9 @@ export default function DashboardPage() {
                     href="/employees"
                   />
                   <ActionItem
-                    title="Submit contribution cycle"
-                    description="New cycle submissions keep leadership informed and aligned."
-                    href="/contributions"
+                    title="Review payroll insights"
+                    description="Track contributions and salary impact in the new payroll workspace."
+                    href="/payroll"
                   />
                   <ActionItem
                     title="Audit department structure"

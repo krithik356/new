@@ -2,6 +2,13 @@ const mongoose = require("mongoose");
 const { Employee } = require("../models/Employee");
 const { Department } = require("../models/Department");
 
+const SALARY_MIN = 35000;
+const SALARY_MAX = 120000;
+
+function generateRandomSalary() {
+  return Math.floor(Math.random() * (SALARY_MAX - SALARY_MIN + 1)) + SALARY_MIN;
+}
+
 async function listEmployees(req, res, next) {
   try {
     const { department: departmentId } = req.query;
@@ -101,6 +108,10 @@ async function seedEmployees(req, res, next) {
         department: employee.department,
         designation: employee.designation,
         email: employee.email,
+        salary:
+          typeof employee.salary === "number" && employee.salary >= 0
+            ? employee.salary
+            : generateRandomSalary(),
       });
     }
 

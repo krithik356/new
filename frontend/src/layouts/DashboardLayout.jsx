@@ -6,7 +6,7 @@ import { useAuth } from '../providers/AuthProvider.jsx'
 const navigation = [
   { to: '/', label: 'Overview', roles: ['Admin', 'HOD'] },
   { to: '/employees', label: 'Employees', roles: ['Admin'] },
-  { to: '/contributions', label: 'Contributions', roles: ['Admin', 'HOD'] },
+  { to: '/payroll', label: 'Payroll', roles: ['Admin', 'HOD'] },
   { to: '/departments', label: 'Departments', roles: ['Admin'] },
   { to: '/profile', label: 'Profile', roles: ['Admin', 'HOD'] },
 ]
