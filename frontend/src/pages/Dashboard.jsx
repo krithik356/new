@@ -416,11 +416,13 @@ export default function DashboardPage() {
               value={loading ? '—' : contributionStats.totals.academy}
               helper="Sum across all contributions"
             />
-            <InsightCard
-              title="Departments"
-              value={loading ? '—' : departments.length || '—'}
-              helper="Available for your role"
-            />
+            {user?.role === 'Admin' && (
+              <InsightCard
+                title="Departments"
+                value={loading ? '—' : departments.length || '—'}
+                helper="Available for your role"
+              />
+            )}
           </section>
 
           <section className="grid gap-6 lg:grid-cols-5">

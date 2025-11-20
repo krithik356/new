@@ -14,7 +14,6 @@ const navigation = [
   { to: '/employees', label: 'Employees', roles: ['Admin', 'HOD'] },
   { to: '/payroll', label: 'Payroll', roles: ['Admin', 'HOD'] },
   { to: '/departments', label: 'Departments', roles: ['Admin'] },
-  { to: '/profile', label: 'Profile', roles: ['Admin', 'HOD'] },
 ]
 
 export default function DashboardLayout() {
@@ -100,7 +99,7 @@ export default function DashboardLayout() {
           </button>
 
           <div className="ml-auto flex items-center gap-4 text-sm text-slate-300">
-            <div className="flex items-center gap-3 rounded-full border border-slate-800/60 bg-slate-900/80 px-1 py-1 text-xs uppercase tracking-[0.3em] text-slate-400">
+            <div className="flex items-center gap-1 rounded-full border border-slate-800/70 bg-slate-950/70 p-1 shadow-inner shadow-black/40">
               {MODE_OPTIONS.map((option) => {
                 const isActive = option.value === mode
                 return (
@@ -110,8 +109,10 @@ export default function DashboardLayout() {
                     onClick={() => setMode(option.value)}
                     aria-pressed={isActive}
                     className={[
-                      'rounded-full px-3 py-1 text-[0.65rem] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70',
-                      isActive ? 'bg-emerald-400 text-slate-900 shadow shadow-emerald-900/30' : 'text-slate-500 hover:text-slate-100',
+                      'rounded-full px-4 py-1.5 text-xs font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70',
+                      isActive
+                        ? 'bg-emerald-400/90 text-slate-900 shadow-lg shadow-emerald-900/30'
+                        : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/50',
                     ].join(' ')}
                   >
                     {option.label}

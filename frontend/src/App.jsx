@@ -7,7 +7,6 @@ import DepartmentsPage from './pages/Departments.jsx'
 import EmployeesPage from './pages/Employees.jsx'
 import PayrollPage from './pages/Payroll.jsx'
 import LoginPage from './pages/Login.jsx'
-import ProfilePage from './pages/Profile.jsx'
 import { useAuth } from './providers/AuthProvider.jsx'
 import { ViewModeProvider } from './providers/ViewModeProvider.jsx'
 
@@ -53,7 +52,6 @@ function App() {
           <Route path="employees" element={<AdminOrHodRoute><EmployeesPage /></AdminOrHodRoute>} />
           <Route path="payroll" element={<PayrollPage />} />
           <Route path="departments" element={<AdminOnlyRoute><DepartmentsPage /></AdminOnlyRoute>} />
-          <Route path="profile" element={<ProfilePage />} />
         </Route>
       </Route>
 

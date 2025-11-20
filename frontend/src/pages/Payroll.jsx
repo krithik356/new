@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
+import SearchableSelect from '../components/SearchableSelect.jsx'
 import YearSelector from '../components/YearSelector.jsx'
 import { apiClient, ApiError } from '../services/apiClient.js'
 import { useAuth } from '../providers/AuthProvider.jsx'
@@ -77,6 +78,7 @@ function formatCurrency(value) {
 
 export default function PayrollPage() {
   const { token, user } = useAuth()
+  const isAdmin = user?.role === 'Admin'
   const [employees, setEmployees] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -252,6 +254,11 @@ export default function PayrollPage() {
         MONTH_DISPLAY_ORDER.indexOf(a) - MONTH_DISPLAY_ORDER.indexOf(b)
     )
   }, [employeesWithMonthlyContributions])
+
+  const monthOptions = useMemo(
+    () => availableMonths.map((month) => ({ id: month, name: month })),
+    [availableMonths]
+  )
 
   const departments = useMemo(() => {
     const map = new Map()
@@ -470,12 +477,6 @@ export default function PayrollPage() {
     return totalCost / employeesForMetrics.length
   }, [employeesForMetrics.length, totalCost])
 
-  const highestSalary = useMemo(() => {
-    return employeesForMetrics.reduce((max, employee) => {
-      return Math.max(max, computeEmployeeSalary(employee))
-    }, 0)
-  }, [employeesForMetrics, computeEmployeeSalary])
-
   const monthToCycleMap = useMemo(() => {
     const map = new Map()
     employeesWithMonthlyContributions.forEach((employee) => {
@@ -653,7 +654,7 @@ export default function PayrollPage() {
                         <td className="whitespace-nowrap px-4 py-3 text-center text-emerald-300">
                           {row.total !== null ? `${row.total}%` : '—'}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-slate-100">
+                        <td className={`whitespace-nowrap px-4 py-3 text-slate-100 ${isAdmin ? 'blur-sm select-none' : ''}`}>
                           {row.salary ? formatCurrency(row.salary) : '—'}
                         </td>
                         <td className="whitespace-nowrap px-4 py-3 text-slate-400">{row.cycle}</td>
@@ -674,44 +675,42 @@ export default function PayrollPage() {
             <h2 className="mt-1 text-2xl font-semibold text-slate-50">Salary impact</h2>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <label className="flex flex-col text-xs font-medium uppercase tracking-widest text-slate-500">
-              Month
-              <select
-                value={monthFilter}
-                onChange={(event) => setMonthFilter(event.target.value)}
-                className="mt-1 rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-2 text-sm text-slate-100 shadow-inner shadow-black/30 focus:border-emerald-400/80 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
-              >
-                <option value="all">All months</option>
-                {availableMonths.map((month) => (
-                  <option key={month} value={month}>
-                    {month}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <SearchableSelect
+              id="month-filter"
+              label="Month"
+              value={monthFilter}
+              onChange={(selection) => setMonthFilter(selection)}
+              options={monthOptions}
+              placeholder="Select month"
+              searchPlaceholder="Search months..."
+              emptyLabel="No months found"
+              includeAllOption
+              allOptionLabel="All months"
+              allOptionValue="all"
+              className="w-full sm:w-48"
+            />
             <YearSelector value={yearFilter} options={YEAR_OPTIONS} onChange={setYearFilter} />
 
             {user?.role === 'Admin' && (
-              <label className="flex flex-col text-xs font-medium uppercase tracking-widest text-slate-500">
-                Department
-                <select
-                  value={departmentFilter}
-                  onChange={(event) => setDepartmentFilter(event.target.value)}
-                  className="mt-1 rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-2 text-sm text-slate-100 shadow-inner shadow-black/30 focus:border-emerald-400/80 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
-                >
-                  <option value="all">All departments</option>
-                  {departments.map((department) => (
-                    <option key={department.id} value={department.id}>
-                      {department.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <SearchableSelect
+                id="department-filter"
+                label="Department"
+                value={departmentFilter}
+                onChange={(selection) => setDepartmentFilter(selection)}
+                options={departments}
+                placeholder="Select department"
+                searchPlaceholder="Search departments..."
+                emptyLabel="No departments found"
+                includeAllOption
+                allOptionLabel="All departments"
+                allOptionValue="all"
+                className="w-full sm:w-56"
+              />
             )}
           </div>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <CostStat
             title="Total salary cost"
             value={formatCurrency(totalCost)}
@@ -721,11 +720,6 @@ export default function PayrollPage() {
             title="Average salary"
             value={formatCurrency(Math.round(averageSalary))}
             helper={isMonthSpecific ? `Per employee in ${monthFilter}` : 'Per employee'}
-          />
-          <CostStat
-            title="Highest salary"
-            value={formatCurrency(highestSalary)}
-            helper={isMonthSpecific ? `Top earner in ${monthFilter}` : 'Top earner'}
           />
           <CostStat
             title="Headcount"
@@ -882,7 +876,7 @@ export default function PayrollPage() {
                                     <td className="whitespace-nowrap px-4 py-3 text-slate-400">
                                       {employee.email || '—'}
                                     </td>
-                                    <td className="whitespace-nowrap px-4 py-3 text-slate-100">
+                                    <td className={`whitespace-nowrap px-4 py-3 text-slate-100 ${isAdmin ? 'blur-sm select-none' : ''}`}>
                                       {formatCurrency(displaySalary)}
                                     </td>
                                     <td className="whitespace-nowrap px-4 py-3 text-center text-slate-100">

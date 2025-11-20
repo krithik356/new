@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'https://backend-rz5x.onrender.com'
+export const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'https://backend-rz5x.onrender.com'
 
 export class ApiError extends Error {
   constructor(message, status, details) {
