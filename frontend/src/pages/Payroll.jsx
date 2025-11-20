@@ -86,6 +86,8 @@ export default function PayrollPage() {
   const [limitedView, setLimitedView] = useState(false)
   const [costSheetLoading, setCostSheetLoading] = useState(false)
   const [costSheetError, setCostSheetError] = useState(null)
+  const [contributionSheetLoading, setContributionSheetLoading] = useState(false)
+  const [contributionSheetError, setContributionSheetError] = useState(null)
   const [monthlySalaryData, setMonthlySalaryData] = useState([])
   const [monthlySalaryError, setMonthlySalaryError] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
@@ -528,8 +530,65 @@ export default function PayrollPage() {
     }
   }
 
+  const handleGenerateContributionSheet = async () => {
+    setContributionSheetError(null)
+
+    if (user?.role === 'Admin' && departmentFilter === 'all') {
+      setContributionSheetError('Select a department to export its contributions.')
+      return
+    }
+
+    setContributionSheetLoading(true)
+    try {
+      if (monthFilter === 'all') {
+        // Generate a single sheet with all months' data
+        if (user?.role === 'Admin') {
+          const selectedDepartment = departments.find((dept) => dept.id === departmentFilter)
+          if (!selectedDepartment) {
+            setContributionSheetError('Selected department could not be found.')
+            return
+          }
+          await apiClient.exportDepartmentEmployeeSheet(
+            token,
+            selectedDepartment.name
+            // No cycle parameter = all months
+          )
+        } else {
+          await apiClient.exportDepartmentEmployeeContributions(token)
+          // No cycle parameter = all months
+        }
+      } else {
+        // Generate sheet for the selected month only
+        const cycleParam = monthToCycleMap.get(monthFilter)
+        if (!cycleParam) {
+          setContributionSheetError('No contributions found for the selected month.')
+          return
+        }
+
+        if (user?.role === 'Admin') {
+          const selectedDepartment = departments.find((dept) => dept.id === departmentFilter)
+          if (!selectedDepartment) {
+            setContributionSheetError('Selected department could not be found.')
+            return
+          }
+          await apiClient.exportDepartmentEmployeeSheet(
+            token,
+            selectedDepartment.name,
+            { cycle: cycleParam }
+          )
+        } else {
+          await apiClient.exportDepartmentEmployeeContributions(token, { cycle: cycleParam })
+        }
+      }
+    } catch (err) {
+      setContributionSheetError(err?.message ?? 'Unable to download the contribution sheet.')
+    } finally {
+      setContributionSheetLoading(false)
+    }
+  }
+
   return (
-    <section className="space-y-8">
+    <section className="space-y-8 w-full max-w-[1400px] mx-auto overflow-x-hidden">
       <header>
         <p className="text-sm uppercase tracking-[0.4em] text-emerald-300/80">Payroll</p>
         <h1 className="mt-2 text-3xl font-semibold text-slate-50">Cost & contribution overview</h1>
@@ -628,7 +687,7 @@ export default function PayrollPage() {
                 <table className="min-w-full divide-y divide-slate-800/60 text-left text-sm text-slate-200">
                   <thead className="bg-slate-900/40 text-xs uppercase tracking-widest text-slate-500">
                     <tr>
-                      <th className="px-4 py-3 font-semibold">Month</th>
+                      <th className="sticky left-0 bg-slate-900/40 px-4 py-3 font-semibold shadow-[2px_0_4px_rgba(15,23,42,0.6)]">Month</th>
                       <th className="px-4 py-3 font-semibold">Academy %</th>
                       <th className="px-4 py-3 font-semibold">Intensive %</th>
                       <th className="px-4 py-3 font-semibold">NIAT %</th>
@@ -639,24 +698,24 @@ export default function PayrollPage() {
                   </thead>
                   <tbody className="divide-y divide-slate-800/40">
                     {selectedEmployeeHistory.map((row) => (
-                      <tr key={`${selectedEmployee._id || selectedEmployee.id}-${row.month}`} className="bg-slate-950/30">
-                        <td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-50">{row.month}</td>
-                        <td className="whitespace-nowrap px-4 py-3 text-center text-slate-100">
+                      <tr key={`${selectedEmployee._id || selectedEmployee.id}-${row.month}`} className="bg-slate-950/30 text-nowrap">
+                        <td className="sticky left-0 bg-slate-950/30 px-4 py-3 font-semibold text-slate-50 shadow-[2px_0_4px_rgba(15,23,42,0.6)]">{row.month}</td>
+                        <td className="px-4 py-3 text-center text-slate-100">
                           {row.academy !== null ? `${row.academy}%` : '—'}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-center text-slate-100">
+                        <td className="px-4 py-3 text-center text-slate-100">
                           {row.intensive !== null ? `${row.intensive}%` : '—'}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-center text-slate-100">
+                        <td className="px-4 py-3 text-center text-slate-100">
                           {row.niat !== null ? `${row.niat}%` : '—'}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-center text-emerald-300">
+                        <td className="px-4 py-3 text-center text-emerald-300">
                           {row.total !== null ? `${row.total}%` : '—'}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-slate-100">
+                        <td className="px-4 py-3 text-slate-100">
                           {row.salary ? formatCurrency(row.salary) : '—'}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-slate-400">{row.cycle}</td>
+                        <td className="px-4 py-3 text-slate-400">{row.cycle}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -737,35 +796,30 @@ export default function PayrollPage() {
         {isMonthSpecific && monthlySalaryError ? (
           <p className="text-sm text-red-300">{monthlySalaryError}</p>
         ) : null}
-
-        <div className="rounded-2xl border border-slate-800/70 bg-slate-950/30 p-4 shadow-inner shadow-black/20">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold text-slate-100">Cost sheet</p>
-              <p className="text-xs text-slate-400">Download an Excel summary with salaries and totals.</p>
-            </div>
-            <button
-              type="button"
-              onClick={handleGenerateCostSheet}
-              disabled={costSheetLoading}
-              className="inline-flex items-center justify-center rounded-2xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-200 transition hover:border-emerald-400 hover:bg-emerald-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {costSheetLoading ? 'Generating…' : 'Generate sheet'}
-            </button>
-          </div>
-          {costSheetError ? (
-            <p className="mt-3 text-sm text-red-300">{costSheetError}</p>
-          ) : null}
-        </div>
       </section>
 
       <section className="space-y-5 rounded-3xl border border-slate-800/70 bg-slate-900/60 p-6 shadow-inner shadow-black/30">
-        <div>
-          <p className="text-xs uppercase tracking-[0.4em] text-slate-500">Contribution</p>
-          <h2 className="mt-1 text-2xl font-semibold text-slate-50">Monthly performance view</h2>
-          <p className="mt-2 text-sm text-slate-400">
-            Contributions are presented by month inside each quarter. Scores remain unchanged—this view simply highlights monthly cadence (Jan, Feb, Mar, etc.).
-          </p>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.4em] text-slate-500">Contribution</p>
+            <h2 className="mt-1 text-2xl font-semibold text-slate-50">Monthly performance view</h2>
+            <p className="mt-2 text-sm text-slate-400">
+              Contributions are presented by month inside each quarter. Scores remain unchanged—this view simply highlights monthly cadence (Jan, Feb, Mar, etc.).
+            </p>
+          </div>
+          <div className="flex flex-col items-end gap-2">
+            <button
+              type="button"
+              onClick={handleGenerateContributionSheet}
+              disabled={contributionSheetLoading}
+              className="inline-flex items-center justify-center rounded-2xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-200 transition hover:border-emerald-400 hover:bg-emerald-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {contributionSheetLoading ? 'Generating…' : 'Generate sheet'}
+            </button>
+            {contributionSheetError ? (
+              <p className="text-xs text-red-300">{contributionSheetError}</p>
+            ) : null}
+          </div>
         </div>
 
         {error ? (
@@ -837,15 +891,15 @@ export default function PayrollPage() {
                           <table className="min-w-full divide-y divide-slate-800/60 text-left text-sm text-slate-200">
                             <thead className="bg-slate-900/40 text-xs uppercase tracking-widest text-slate-500">
                               <tr>
-                                <th className="px-4 py-3 font-semibold">Employee ID</th>
-                                <th className="px-4 py-3 font-semibold">Name</th>
-                                <th className="px-4 py-3 font-semibold">Role / Designation</th>
-                                <th className="px-4 py-3 font-semibold">Email</th>
-                                <th className="px-4 py-3 font-semibold">Salary</th>
-                                <th className="px-4 py-3 font-semibold">Academy %</th>
-                                <th className="px-4 py-3 font-semibold">Intensive %</th>
-                                <th className="px-4 py-3 font-semibold">NIAT %</th>
-                                <th className="px-4 py-3 font-semibold">Total %</th>
+                                <th className="w-28 px-4 py-3 font-semibold">Employee ID</th>
+                                <th className="w-40 px-4 py-3 font-semibold">Name</th>
+                                <th className="w-56 px-4 py-3 font-semibold">Role / Designation</th>
+                                <th className="w-64 px-4 py-3 font-semibold">Email</th>
+                                <th className="w-28 px-4 py-3 font-semibold text-center">Salary</th>
+                                <th className="w-24 px-4 py-3 font-semibold text-center">Academy %</th>
+                                <th className="w-24 px-4 py-3 font-semibold text-center">Intensive %</th>
+                                <th className="w-24 px-4 py-3 font-semibold text-center">NIAT %</th>
+                                <th className="w-20 px-4 py-3 font-semibold text-center">Total %</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800/40">
@@ -872,29 +926,29 @@ export default function PayrollPage() {
 
                                 return (
                                   <tr key={`${employee._id || employee.id}-${month}`} className="bg-slate-950/30">
-                                    <td className="whitespace-nowrap px-4 py-3 text-slate-400">{employee.empId || '—'}</td>
-                                    <td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-50">
+                                    <td className="px-4 py-3 text-slate-400">{employee.empId || '—'}</td>
+                                    <td className="px-4 py-3 font-semibold text-slate-50">
                                       {employee.name}
                                     </td>
-                                    <td className="whitespace-nowrap px-4 py-3 text-slate-400">
+                                    <td className="px-4 py-3 text-slate-400">
                                       {roleDisplay}
                                     </td>
-                                    <td className="whitespace-nowrap px-4 py-3 text-slate-400">
+                                    <td className="px-4 py-3 text-slate-400">
                                       {employee.email || '—'}
                                     </td>
-                                    <td className="whitespace-nowrap px-4 py-3 text-slate-100">
+                                    <td className="px-4 py-3 text-center text-slate-100">
                                       {formatCurrency(displaySalary)}
                                     </td>
-                                    <td className="whitespace-nowrap px-4 py-3 text-center text-slate-100">
+                                    <td className="px-4 py-3 text-center text-slate-100">
                                       {academy !== null ? `${academy}%` : '—'}
                                     </td>
-                                    <td className="whitespace-nowrap px-4 py-3 text-center text-slate-100">
+                                    <td className="px-4 py-3 text-center text-slate-100">
                                       {intensive !== null ? `${intensive}%` : '—'}
                                     </td>
-                                    <td className="whitespace-nowrap px-4 py-3 text-center text-slate-100">
+                                    <td className="px-4 py-3 text-center text-slate-100">
                                       {niat !== null ? `${niat}%` : '—'}
                                     </td>
-                                    <td className="whitespace-nowrap px-4 py-3 text-center font-semibold text-emerald-300">
+                                    <td className="px-4 py-3 text-center font-semibold text-emerald-300">
                                       {total !== null ? `${total}%` : '—'}
                                     </td>
                                   </tr>

@@ -1,4 +1,7 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'https://backend-rz5x.onrender.com'
+const DEFAULT_PROD_API = 'https://backend-rz5x.onrender.com'
+const DEFAULT_DEV_API = 'http://localhost:5001'
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? DEFAULT_DEV_API : DEFAULT_PROD_API)
+const REQUEST_TIMEOUT_MS = 15000
 
 export class ApiError extends Error {
   constructor(message, status, details) {
@@ -27,26 +30,39 @@ async function request(path, { method = 'GET', body, token, headers: customHeade
     headers.Authorization = `Bearer ${token}`
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  })
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
-  const payload = await parseJsonSafely(response)
+  try {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    })
 
-  if (!response.ok) {
-    const message =
-      payload?.message ??
-      payload?.error ??
-      (response.status >= 500
-        ? 'The server is currently unavailable. Please try again later.'
-        : 'We could not complete your request.')
+    const payload = await parseJsonSafely(response)
 
-    throw new ApiError(message, response.status, payload)
+    if (!response.ok) {
+      const message =
+        payload?.message ??
+        payload?.error ??
+        (response.status >= 500
+          ? 'The server is currently unavailable. Please try again later.'
+          : 'We could not complete your request.')
+
+      throw new ApiError(message, response.status, payload)
+    }
+
+    return payload
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      throw new ApiError('The server is taking too long to respond. Please try again.', 408)
+    }
+    throw error
+  } finally {
+    clearTimeout(timeoutId)
   }
-
-  return payload
 }
 
 export const apiClient = {

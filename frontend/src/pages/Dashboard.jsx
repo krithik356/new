@@ -1,8 +1,60 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 
 import { apiClient, ApiError } from '../services/apiClient.js'
 import { useAuth } from '../providers/AuthProvider.jsx'
+
+const MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+]
+
+const currencyFormatter = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  maximumFractionDigits: 0,
+})
+
+function formatCurrency(value) {
+  if (typeof value !== 'number') return currencyFormatter.format(0)
+  return currencyFormatter.format(value)
+}
+
+function getLast5Months() {
+  const now = new Date()
+  const currentYear = now.getFullYear()
+  const currentMonth = now.getMonth() // 0-indexed
+  
+  const months = []
+  for (let i = 4; i >= 0; i--) {
+    const monthIndex = currentMonth - i
+    let year = currentYear
+    let month = monthIndex
+    
+    if (month < 0) {
+      month += 12
+      year -= 1
+    }
+    
+    months.push({
+      month: MONTH_NAMES[month],
+      year,
+      monthIndex: month,
+    })
+  }
+  
+  return months
+}
 
 function aggregateContributions(contributions = []) {
   const base = {
@@ -22,6 +74,46 @@ function aggregateContributions(contributions = []) {
   }, base)
 }
 
+const DONUT_COLORS = ['#34d399', '#60a5fa', '#f472b6']
+
+function buildProductBreakdown(contributions = []) {
+  const totals = contributions.reduce(
+    (acc, entry) => {
+      acc.academy += Number(entry.academy ?? 0)
+      acc.intensive += Number(entry.intensive ?? 0)
+      acc.niat += Number(entry.niat ?? 0)
+      return acc
+    },
+    { academy: 0, intensive: 0, niat: 0 }
+  )
+
+  const totalValue = totals.academy + totals.intensive + totals.niat
+  if (totalValue === 0) {
+    return []
+  }
+
+  const products = [
+    { product: 'Academy', value: totals.academy },
+    { product: 'Intensive', value: totals.intensive },
+    { product: 'NIAT', value: totals.niat },
+  ]
+
+  let accumulated = 0
+  return products.map((item, index) => {
+    let percentage
+    if (index === products.length - 1) {
+      percentage = Math.max(0, 100 - accumulated)
+    } else {
+      percentage = Math.round((item.value / totalValue) * 100)
+      accumulated += percentage
+    }
+    return {
+      ...item,
+      percentage,
+    }
+  })
+}
+
 export default function DashboardPage() {
   const { token, user } = useAuth()
   const [loading, setLoading] = useState(true)
@@ -31,9 +123,9 @@ export default function DashboardPage() {
   const [departments, setDepartments] = useState([])
   const [contributions, setContributions] = useState([])
   const [generatingReport, setGeneratingReport] = useState(false)
-  const [generatingSheet, setGeneratingSheet] = useState(false)
-  const [sendingSheet, setSendingSheet] = useState(false)
   const [generatingDeptSheet, setGeneratingDeptSheet] = useState(null) // Track which department sheet is being generated
+  const [monthlyCosts, setMonthlyCosts] = useState([])
+  const [monthlyCostsLoading, setMonthlyCostsLoading] = useState(false)
   
   // Filter employees and contributions for HOD users
   const filteredEmployees = user?.role === 'HOD' && user?.department?.id
@@ -140,11 +232,103 @@ export default function DashboardPage() {
     }
   }, [token])
 
+  // Fetch monthly costs for HOD users (last 5 months)
+  useEffect(() => {
+    let isCancelled = false
+
+    async function fetchMonthlyCosts() {
+      if (user?.role !== 'HOD' || !user?.department?.id) {
+        setMonthlyCosts([])
+        return
+      }
+
+      setMonthlyCostsLoading(true)
+      const last5Months = getLast5Months()
+      const costsData = []
+
+      try {
+        for (const { month, year } of last5Months) {
+          try {
+            const response = await apiClient.getMonthlySalaries(token, {
+              month,
+              year,
+            })
+            const salaries = response.data ?? []
+            const totalCost = salaries.reduce((sum, entry) => sum + (entry.amount ?? 0), 0)
+            costsData.push({
+              month,
+              year,
+              totalCost,
+            })
+          } catch (err) {
+            // If a month fails, still add it with 0 cost
+            costsData.push({
+              month,
+              year,
+              totalCost: 0,
+            })
+          }
+        }
+
+        if (!isCancelled) {
+          setMonthlyCosts(costsData)
+        }
+      } catch (err) {
+        if (!isCancelled) {
+          setMonthlyCosts([])
+        }
+      } finally {
+        if (!isCancelled) {
+          setMonthlyCostsLoading(false)
+        }
+      }
+    }
+
+    fetchMonthlyCosts()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [token, user?.role, user?.department?.id])
+
   const contributionStats = aggregateContributions(filteredContributions)
   const currentDepartment =
     user?.department && departments.length === 0
       ? user.department
       : departments.find((dept) => dept.id === user?.department?.id) ?? user?.department ?? null
+
+  const hodProductContributions = useMemo(() => {
+    if (user?.role !== 'HOD') {
+      return []
+    }
+    return buildProductBreakdown(filteredContributions)
+  }, [user?.role, filteredContributions])
+
+  const hodProductChart = useMemo(() => {
+    if (hodProductContributions.length === 0) {
+      return null
+    }
+    let currentPercent = 0
+    const segments = hodProductContributions.map((item, index) => {
+      const color = DONUT_COLORS[index % DONUT_COLORS.length]
+      const startDeg = currentPercent * 3.6
+      const endDeg = (currentPercent + item.percentage) * 3.6
+      currentPercent += item.percentage
+      return {
+        ...item,
+        color,
+        startDeg,
+        endDeg,
+      }
+    })
+    const gradientStops = segments
+      .map((segment) => `${segment.color} ${segment.startDeg}deg ${segment.endDeg}deg`)
+      .join(', ')
+    return {
+      segments,
+      gradient: `conic-gradient(${gradientStops})`,
+    }
+  }, [hodProductContributions])
 
   return (
     <div className="space-y-8">
@@ -276,72 +460,6 @@ export default function DashboardPage() {
                 </button>
               </>
             )}
-            {user?.role === 'HOD' && user?.department && (
-              <>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    setGeneratingSheet(true)
-                    try {
-                      await apiClient.exportDepartmentEmployeeContributions(token)
-                      setError(null)
-                    } catch (err) {
-                      setError(err?.message ?? 'Failed to generate sheet. Please try again.')
-                    } finally {
-                      setGeneratingSheet(false)
-                    }
-                  }}
-                  disabled={generatingSheet}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-400/60 bg-emerald-500/20 px-5 py-3 text-sm font-semibold text-emerald-200 transition hover:border-emerald-300 hover:bg-emerald-500/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {generatingSheet ? (
-                    <>
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-emerald-200 border-t-transparent" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <span>📄</span>
-                      Generate Sheet
-                    </>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    setSendingSheet(true)
-                    try {
-                      const result = await apiClient.sendSheetToAdmin(token)
-                      setError(null)
-                      // Show success message
-                      setAlerts([{
-                        type: 'info',
-                        title: 'Sheet Sent',
-                        message: result?.message ?? 'Sheet has been sent to administrators successfully.',
-                      }])
-                    } catch (err) {
-                      setError(err?.message ?? 'Failed to send sheet. Please try again.')
-                    } finally {
-                      setSendingSheet(false)
-                    }
-                  }}
-                  disabled={sendingSheet || generatingSheet}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-blue-400/60 bg-blue-500/20 px-5 py-3 text-sm font-semibold text-blue-200 transition hover:border-blue-300 hover:bg-blue-500/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {sendingSheet ? (
-                    <>
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-blue-200 border-t-transparent" />
-                      Sending...
-                    </>
-                  ) : (
-                    <>
-                      <span>📤</span>
-                      Send Sheet
-                    </>
-                  )}
-                </button>
-              </>
-            )}
             <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200 shadow-inner shadow-black/20">
             <p className="font-medium uppercase tracking-widest text-emerald-100/70">
               {user?.role === 'Admin' ? 'Administrator' : user?.role ?? 'Member'}
@@ -416,127 +534,170 @@ export default function DashboardPage() {
               value={loading ? '—' : contributionStats.totals.academy}
               helper="Sum across all contributions"
             />
-            <InsightCard
-              title="Departments"
-              value={loading ? '—' : departments.length || '—'}
-              helper="Available for your role"
-            />
+            {user?.role !== 'HOD' && (
+              <InsightCard
+                title="Departments"
+                value={loading ? '—' : departments.length || '—'}
+                helper="Available for your role"
+              />
+            )}
           </section>
 
-          <section className="grid gap-6 lg:grid-cols-5">
-            <div className="space-y-6 lg:col-span-3">
-              <div className="rounded-3xl border border-slate-800/70 bg-slate-900/60 px-6 py-6 shadow-inner shadow-black/30">
-                <header className="flex items-center justify-between gap-4">
-                  <div>
-                    <h2 className="text-lg font-semibold text-slate-100">Latest contributions</h2>
-                    <p className="text-xs text-slate-500">Most recent submissions appear first.</p>
+          {user?.role === 'HOD' ? (
+            <section className="rounded-3xl border border-slate-800/70 bg-slate-900/60 p-6 shadow-inner shadow-black/30">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.4em] text-slate-500">Products</p>
+                  <h2 className="mt-1 text-2xl font-semibold text-slate-50">Contribution mix</h2>
+                  <p className="mt-2 text-sm text-slate-400">
+                    Share of Academy, Intensive, and NIAT contributions within your department.
+                  </p>
+                </div>
+              </div>
+
+              {hodProductContributions.length === 0 || !hodProductChart ? (
+                <p className="mt-6 rounded-2xl border border-slate-800/60 bg-slate-900/70 px-4 py-6 text-sm text-slate-400">
+                  No contribution data is available yet.
+                </p>
+              ) : (
+                <div className="mt-6 flex flex-col gap-6 lg:flex-row lg:items-center">
+                  <div className="relative mx-auto h-40 w-40">
+                    <div
+                      className="h-full w-full rounded-full border border-slate-800/60"
+                      style={{ backgroundImage: hodProductChart.gradient }}
+                      aria-hidden="true"
+                    />
+                    <div className="absolute inset-6 grid place-items-center rounded-full bg-slate-950 text-center">
+                      <p className="text-[0.65rem] uppercase tracking-[0.35em] text-slate-500">Total</p>
+                      <p className="text-2xl font-semibold text-slate-50">100%</p>
+                    </div>
                   </div>
-                  <Link
-                    to="/payroll"
-                    className="inline-flex items-center gap-2 rounded-xl border border-slate-800 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-slate-700 hover:bg-slate-800/80"
-                  >
-                    View all →
-                  </Link>
-                </header>
-
-                <div className="mt-5 space-y-4">
-                  {loading ? (
-                    <SkeletonRows count={3} />
-                  ) : filteredContributions.length === 0 ? (
-                    <p className="rounded-2xl border border-slate-800/60 bg-slate-900/80 px-4 py-6 text-sm text-slate-400">
-                      No contributions are available for your role yet.
-                    </p>
-                  ) : (
-                    filteredContributions.slice(0, 4).map((entry) => (
-                      <article
-                        key={entry.id ?? `${entry.department?._id ?? entry.department}-${entry.cycle ?? 'default'}`}
-                        className="rounded-2xl border border-slate-800/60 bg-slate-900/70 px-4 py-4 shadow-sm shadow-black/20"
+                  <div className="flex-1 space-y-3">
+                    {hodProductChart.segments.map((segment) => (
+                      <div
+                        key={segment.product}
+                        className="flex items-center justify-between rounded-2xl border border-slate-800/60 bg-slate-900/70 px-4 py-3 text-sm text-slate-200"
                       >
-                        <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                          <span
+                            className="h-2.5 w-2.5 rounded-full"
+                            style={{ backgroundColor: segment.color }}
+                            aria-hidden="true"
+                          />
                           <div>
-                            <p className="text-sm font-semibold text-slate-100">
-                              {entry.department?.name ?? 'Department contribution'}
-                            </p>
-                            <p className="text-xs uppercase tracking-widest text-emerald-300/70">
-                              Cycle {entry.cycle ?? 'default'}
-                            </p>
+                            <p className="font-semibold text-slate-100">{segment.product}</p>
+                            <p className="text-[0.65rem] uppercase tracking-[0.35em] text-slate-500">Share</p>
                           </div>
-                          <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-200">
-                            {entry.submittedBy?.name ?? 'Submitted'}
-                          </span>
                         </div>
-                        <div className="mt-4 grid gap-3 text-xs text-slate-400 sm:grid-cols-3">
-                          <Metric label="Academy" value={entry.academy} />
-                          <Metric label="Intensive" value={entry.intensive} />
-                          <Metric label="NIAT" value={entry.niat} />
-                        </div>
-                      </article>
-                    ))
-                  )}
+                        <span className="text-base font-semibold text-emerald-200">{segment.percentage}%</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            </div>
+              )}
+            </section>
+          ) : null}
 
-            <div className="space-y-6 lg:col-span-2">
-              <div className="rounded-3xl border border-slate-800/70 bg-slate-900/60 px-6 py-6 shadow-inner shadow-black/30">
-                <h2 className="text-lg font-semibold text-slate-100">People snapshot</h2>
-                <p className="mt-1 text-xs text-slate-500">Top departments by headcount.</p>
+          <section className="space-y-6">
+            <div className="space-y-6">
+              {user?.role === 'HOD' ? (
+                <div className="rounded-3xl border border-slate-800/70 bg-slate-900/60 px-6 py-6 shadow-inner shadow-black/30">
+                  <header className="flex items-center justify-between gap-4">
+                    <div>
+                      <h2 className="text-lg font-semibold text-slate-100">Latest costs</h2>
+                      <p className="text-xs text-slate-500">Total salary costs for the last 5 months.</p>
+                    </div>
+                    <Link
+                      to="/payroll"
+                      className="inline-flex items-center gap-2 rounded-xl border border-slate-800 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-slate-700 hover:bg-slate-800/80"
+                    >
+                      View all →
+                    </Link>
+                  </header>
 
-                <div className="mt-5 space-y-3">
-                  {loading ? (
-                    <SkeletonRows count={4} />
-                  ) : filteredEmployees.length === 0 ? (
-                    <p className="rounded-2xl border border-slate-800/60 bg-slate-900/80 px-4 py-6 text-sm text-slate-400">
-                      No employee data visible. Ask an administrator to grant you access.
-                    </p>
-                  ) : (
-                    Object.entries(
-                      filteredEmployees.reduce((acc, employee) => {
-                        const deptName = employee.department?.name ?? 'Unassigned'
-                        acc[deptName] = (acc[deptName] ?? 0) + 1
-                        return acc
-                      }, {})
-                    )
-                      .sort((a, b) => b[1] - a[1])
-                      .slice(0, 5)
-                      .map(([deptName, count]) => (
-                        <div
-                          key={deptName}
-                          className="flex items-center justify-between rounded-2xl border border-slate-800/60 bg-slate-900/70 px-3 py-3 text-sm text-slate-200"
+                  <div className="mt-5 space-y-4">
+                    {monthlyCostsLoading || loading ? (
+                      <SkeletonRows count={5} />
+                    ) : monthlyCosts.length === 0 ? (
+                      <p className="rounded-2xl border border-slate-800/60 bg-slate-900/80 px-4 py-6 text-sm text-slate-400">
+                        No salary data available for the last 5 months.
+                      </p>
+                    ) : (
+                      monthlyCosts.map((costEntry) => (
+                        <article
+                          key={`${costEntry.month}-${costEntry.year}`}
+                          className="rounded-2xl border border-slate-800/60 bg-slate-900/70 px-4 py-4 shadow-sm shadow-black/20"
                         >
-                          <div>
-                            <p className="font-medium text-slate-100">{deptName}</p>
-                            <p className="text-xs text-slate-400">Team members</p>
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <p className="text-sm font-semibold text-slate-100">
+                                {costEntry.month} {costEntry.year}
+                              </p>
+                              <p className="text-xs uppercase tracking-widest text-emerald-300/70">
+                                Monthly Salary Cost
+                              </p>
+                            </div>
+                            <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-200">
+                              {formatCurrency(costEntry.totalCost)}
+                            </span>
                           </div>
-                          <span className="rounded-full border border-emerald-400/40 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-200">
-                            {count}
-                          </span>
-                        </div>
+                        </article>
                       ))
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="rounded-3xl border border-slate-800/70 bg-slate-900/60 px-6 py-6 shadow-inner shadow-black/30">
+                  <header className="flex items-center justify-between gap-4">
+                    <div>
+                      <h2 className="text-lg font-semibold text-slate-100">Latest contributions</h2>
+                      <p className="text-xs text-slate-500">Most recent submissions appear first.</p>
+                    </div>
+                    <Link
+                      to="/payroll"
+                      className="inline-flex items-center gap-2 rounded-xl border border-slate-800 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-slate-700 hover:bg-slate-800/80"
+                    >
+                      View all →
+                    </Link>
+                  </header>
 
-              <div className="rounded-3xl border border-slate-800/70 bg-slate-900/60 px-6 py-6 shadow-inner shadow-black/30">
-                <h2 className="text-lg font-semibold text-slate-100">Next best actions</h2>
-                <ul className="mt-4 space-y-3 text-sm text-slate-300">
-                  <ActionItem
-                    title="Review employee updates"
-                    description="Ensure personnel records are current across all departments."
-                    href="/employees"
-                  />
-                  <ActionItem
-                    title="Review payroll insights"
-                    description="Track contributions and salary impact in the new payroll workspace."
-                    href="/payroll"
-                  />
-                  <ActionItem
-                    title="Audit department structure"
-                    description="Confirm the correct HOD assignments and codes for every department."
-                    href="/departments"
-                  />
-                </ul>
-              </div>
+                  <div className="mt-5 space-y-4">
+                    {loading ? (
+                      <SkeletonRows count={3} />
+                    ) : filteredContributions.length === 0 ? (
+                      <p className="rounded-2xl border border-slate-800/60 bg-slate-900/80 px-4 py-6 text-sm text-slate-400">
+                        No contributions are available for your role yet.
+                      </p>
+                    ) : (
+                      filteredContributions.slice(0, 4).map((entry) => (
+                        <article
+                          key={entry.id ?? `${entry.department?._id ?? entry.department}-${entry.cycle ?? 'default'}`}
+                          className="rounded-2xl border border-slate-800/60 bg-slate-900/70 px-4 py-4 shadow-sm shadow-black/20"
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <p className="text-sm font-semibold text-slate-100">
+                                {entry.department?.name ?? 'Department contribution'}
+                              </p>
+                              <p className="text-xs uppercase tracking-widest text-emerald-300/70">
+                                Cycle {entry.cycle ?? 'default'}
+                              </p>
+                            </div>
+                            <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-200">
+                              {entry.submittedBy?.name ?? 'Submitted'}
+                            </span>
+                          </div>
+                          <div className="mt-4 grid gap-3 text-xs text-slate-400 sm:grid-cols-3">
+                            <Metric label="Academy" value={entry.academy} />
+                            <Metric label="Intensive" value={entry.intensive} />
+                            <Metric label="NIAT" value={entry.niat} />
+                          </div>
+                        </article>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </section>
         </>

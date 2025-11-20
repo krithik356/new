@@ -14,7 +14,6 @@ const navigation = [
   { to: '/employees', label: 'Employees', roles: ['Admin', 'HOD'] },
   { to: '/payroll', label: 'Payroll', roles: ['Admin', 'HOD'] },
   { to: '/departments', label: 'Departments', roles: ['Admin'] },
-  { to: '/profile', label: 'Profile', roles: ['Admin', 'HOD'] },
 ]
 
 export default function DashboardLayout() {
