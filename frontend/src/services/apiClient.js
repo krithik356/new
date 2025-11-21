@@ -1,4 +1,13 @@
-export const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'https://backend-rz5x.onrender.com'
+const DEFAULT_REMOTE_API = 'https://backend-rz5x.onrender.com'
+
+const explicitBase = import.meta.env.VITE_API_URL?.trim()
+
+export const API_BASE_URL =
+  explicitBase && explicitBase.length > 0
+    ? explicitBase.replace(/\/$/, '')
+    : import.meta.env.DEV
+      ? ''
+      : DEFAULT_REMOTE_API
 
 export class ApiError extends Error {
   constructor(message, status, details) {

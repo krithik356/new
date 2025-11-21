@@ -141,6 +141,13 @@ export default function DashboardPage() {
   }, [token])
 
   const contributionStats = aggregateContributions(filteredContributions)
+  const recentPayrollUpdates = filteredContributions
+    .slice()
+    .sort(
+      (a, b) =>
+        new Date(b.submittedAt ?? b.updatedAt ?? 0) - new Date(a.submittedAt ?? a.updatedAt ?? 0)
+    )
+    .slice(0, 4)
   const currentDepartment =
     user?.department && departments.length === 0
       ? user.department
@@ -430,56 +437,70 @@ export default function DashboardPage() {
               <div className="rounded-3xl border border-slate-800/70 bg-slate-900/60 px-6 py-6 shadow-inner shadow-black/30">
                 <header className="flex items-center justify-between gap-4">
                   <div>
-                    <h2 className="text-lg font-semibold text-slate-100">Latest contributions</h2>
-                    <p className="text-xs text-slate-500">Most recent submissions appear first.</p>
+                    <h2 className="text-lg font-semibold text-slate-100">Recent payroll updates</h2>
+                    <p className="text-xs text-slate-500">Latest submissions impacting salary allocations.</p>
                   </div>
                   <Link
                     to="/payroll"
                     className="inline-flex items-center gap-2 rounded-xl border border-slate-800 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-slate-700 hover:bg-slate-800/80"
                   >
-                    View all →
+                    View payroll →
                   </Link>
                 </header>
 
                 <div className="mt-5 space-y-4">
                   {loading ? (
                     <SkeletonRows count={3} />
-                  ) : filteredContributions.length === 0 ? (
+                  ) : recentPayrollUpdates.length === 0 ? (
                     <p className="rounded-2xl border border-slate-800/60 bg-slate-900/80 px-4 py-6 text-sm text-slate-400">
-                      No contributions are available for your role yet.
+                      No payroll updates are available for your role yet.
                     </p>
                   ) : (
-                    filteredContributions.slice(0, 4).map((entry) => (
-                      <article
-                        key={entry.id ?? `${entry.department?._id ?? entry.department}-${entry.cycle ?? 'default'}`}
-                        className="rounded-2xl border border-slate-800/60 bg-slate-900/70 px-4 py-4 shadow-sm shadow-black/20"
-                      >
-                        <div className="flex items-start justify-between gap-4">
-                          <div>
-                            <p className="text-sm font-semibold text-slate-100">
-                              {entry.department?.name ?? 'Department contribution'}
-                            </p>
-                            <p className="text-xs uppercase tracking-widest text-emerald-300/70">
-                              Cycle {entry.cycle ?? 'default'}
-                            </p>
+                    recentPayrollUpdates.map((entry) => {
+                      const formattedDate = entry.submittedAt
+                        ? new Date(entry.submittedAt).toLocaleDateString(undefined, {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })
+                        : '—'
+
+                      return (
+                        <article
+                          key={entry.id ?? `${entry.department?._id ?? entry.department}-${entry.cycle ?? 'default'}`}
+                          className="rounded-2xl border border-slate-800/60 bg-slate-900/70 px-4 py-4 shadow-sm shadow-black/20"
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-4">
+                            <div>
+                              <p className="text-sm font-semibold text-slate-100">
+                                {entry.department?.name ?? 'Department update'}
+                              </p>
+                              <p className="text-xs uppercase tracking-widest text-emerald-300/70">
+                                Cycle {entry.cycle ?? 'default'}
+                              </p>
+                              <p className="mt-1 text-xs text-slate-500">
+                                Submitted {formattedDate} · {entry.submittedBy?.name ?? 'Automated'}
+                              </p>
+                            </div>
+                            <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-200">
+                              Payroll refresh
+                            </span>
                           </div>
-                          <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-200">
-                            {entry.submittedBy?.name ?? 'Submitted'}
-                          </span>
-                        </div>
-                        <div className="mt-4 grid gap-3 text-xs text-slate-400 sm:grid-cols-3">
-                          <Metric label="Academy" value={entry.academy} />
-                          <Metric label="Intensive" value={entry.intensive} />
-                          <Metric label="NIAT" value={entry.niat} />
-                        </div>
-                      </article>
-                    ))
+                          <div className="mt-4 grid gap-3 text-xs text-slate-400 sm:grid-cols-3">
+                            <Metric label="Academy" value={`${entry.academy ?? '—'}%`} />
+                            <Metric label="Intensive" value={`${entry.intensive ?? '—'}%`} />
+                            <Metric label="NIAT" value={`${entry.niat ?? '—'}%`} />
+                          </div>
+                        </article>
+                      )
+                    })
                   )}
                 </div>
               </div>
             </div>
 
-            <div className="space-y-6 lg:col-span-2">
+            <div className="lg:col-span-2">
               <div className="rounded-3xl border border-slate-800/70 bg-slate-900/60 px-6 py-6 shadow-inner shadow-black/30">
                 <h2 className="text-lg font-semibold text-slate-100">People snapshot</h2>
                 <p className="mt-1 text-xs text-slate-500">Top departments by headcount.</p>
@@ -519,26 +540,6 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              <div className="rounded-3xl border border-slate-800/70 bg-slate-900/60 px-6 py-6 shadow-inner shadow-black/30">
-                <h2 className="text-lg font-semibold text-slate-100">Next best actions</h2>
-                <ul className="mt-4 space-y-3 text-sm text-slate-300">
-                  <ActionItem
-                    title="Review employee updates"
-                    description="Ensure personnel records are current across all departments."
-                    href="/employees"
-                  />
-                  <ActionItem
-                    title="Review payroll insights"
-                    description="Track contributions and salary impact in the new payroll workspace."
-                    href="/payroll"
-                  />
-                  <ActionItem
-                    title="Audit department structure"
-                    description="Confirm the correct HOD assignments and codes for every department."
-                    href="/departments"
-                  />
-                </ul>
-              </div>
             </div>
           </section>
         </>
@@ -579,17 +580,4 @@ function SkeletonRows({ count }) {
     </div>
   )
 }
-
-function ActionItem({ title, description, href }) {
-  return (
-    <li className="rounded-2xl border border-slate-800/60 bg-slate-900/70 px-4 py-3">
-      <p className="font-semibold text-slate-100">{title}</p>
-      <p className="mt-1 text-xs text-slate-400">{description}</p>
-      <Link to={href} className="mt-3 inline-flex items-center text-xs font-semibold text-emerald-300 hover:text-emerald-200">
-        Go now →
-      </Link>
-    </li>
-  )
-}
-
 
