@@ -242,6 +242,43 @@ export const apiClient = {
     return request(`/api/monthly-salaries${query}`, { token })
   },
 
+  // Non-payroll endpoints
+  getNonPayrollOverview: (token) => request('/api/non-payroll/overview', { token }),
+
+  getNonPayrollContractors: (token, { departmentId, status } = {}) => {
+    const params = new URLSearchParams()
+    if (departmentId) params.append('departmentId', departmentId)
+    if (status) params.append('status', status)
+    const query = params.toString() ? `?${params.toString()}` : ''
+    return request(`/api/non-payroll/contractors${query}`, { token })
+  },
+
+  getNonPayrollVendors: (token, { departmentId } = {}) => {
+    const params = new URLSearchParams()
+    if (departmentId) params.append('departmentId', departmentId)
+    const query = params.toString() ? `?${params.toString()}` : ''
+    return request(`/api/non-payroll/vendors${query}`, { token })
+  },
+
+  getNonPayrollInterns: (token, { departmentId } = {}) => {
+    const params = new URLSearchParams()
+    if (departmentId) params.append('departmentId', departmentId)
+    const query = params.toString() ? `?${params.toString()}` : ''
+    return request(`/api/non-payroll/interns${query}`, { token })
+  },
+
+  getNonPayrollProducts: (token) => request('/api/non-payroll/products', { token }),
+
+  getNonPayrollSpendEfficiency: (token, { year, month } = {}) => {
+    const params = new URLSearchParams()
+    if (year) params.append('year', year)
+    if (month && month !== 'all') params.append('month', month)
+    const query = params.toString() ? `?${params.toString()}` : ''
+    return request(`/api/non-payroll/spend-efficiency${query}`, { token })
+  },
+
+  getNonPayrollContractsRisks: (token) =>
+    request('/api/non-payroll/contracts-risks', { token }),
 }
 
 

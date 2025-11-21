@@ -12,19 +12,49 @@ const MODE_OPTIONS = [
 const navigation = [
   { to: '/', label: 'Overview', roles: ['Admin', 'HOD'] },
   { to: '/employees', label: 'Employees', roles: ['Admin', 'HOD'] },
-  { to: '/payroll', label: 'Payroll', roles: ['Admin', 'HOD'] },
+  { to: '/payroll', label: 'Payroll', rolcones: ['Admin', 'HOD'] },
   { to: '/departments', label: 'Departments', roles: ['Admin'] },
+  {
+    label: 'Non-Payroll',
+    roles: ['Admin', 'HOD'],
+    children: [
+      { to: '/non-payroll/overview', label: 'Overview', roles: ['Admin'] },
+      { to: '/non-payroll/contractors', label: 'Contractors', roles: ['Admin', 'HOD'] },
+      { to: '/non-payroll/vendors', label: 'Vendors', roles: ['Admin', 'HOD'] },
+      { to: '/non-payroll/interns', label: 'Interns', roles: ['Admin', 'HOD'] },
+      { to: '/non-payroll/products', label: 'Products', roles: ['Admin', 'HOD'] },
+      { to: '/non-payroll/spend-efficiency', label: 'Spend & Efficiency', roles: ['Admin', 'HOD'] },
+      { to: '/non-payroll/contracts-risks', label: 'Contracts & Risks', roles: ['Admin', 'HOD'] },
+    ],
+  },
 ]
 
 export default function DashboardLayout() {
   const { user, signOut } = useAuth()
   const { mode, setMode } = useViewMode()
-  
-  const filteredNavigation = navigation.filter((item) => {
-    if (!item.roles) return true
-    return item.roles.includes(user?.role)
-  })
+
+  const filteredNavigation = navigation
+    .map((item) => {
+      if (item.children) {
+        const children = item.children.filter((child) => {
+          if (!child.roles) return true
+          return child.roles.includes(user?.role)
+        })
+        if (children.length === 0) {
+          return null
+        }
+        if (item.roles && !item.roles.includes(user?.role)) {
+          return null
+        }
+        return { ...item, children }
+      }
+      if (!item.roles) return item
+      return item.roles.includes(user?.role) ? item : null
+    })
+    .filter(Boolean)
+
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  const [expandedGroups, setExpandedGroups] = useState({})
 
   const initials = user?.name
     ? user.name
@@ -53,26 +83,74 @@ export default function DashboardLayout() {
           </div>
         </div>
 
-        <nav className="flex flex-col gap-1 px-4 py-6 text-sm">
-          {filteredNavigation.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === '/'}
-              className={({ isActive }) =>
-                [
-                  'flex items-center justify-between rounded-xl px-4 py-3 font-medium transition',
-                  isActive
-                    ? 'bg-emerald-500/10 text-emerald-200 ring-1 ring-inset ring-emerald-500/30'
-                    : 'text-slate-300 hover:bg-slate-800/60 hover:text-slate-100',
-                ].join(' ')
-              }
-              onClick={() => setMobileNavOpen(false)}
-            >
-              <span>{item.label}</span>
-              <span className="text-xs uppercase tracking-widest text-slate-500">{item.to === '/' ? 'overview' : ''}</span>
-            </NavLink>
-          ))}
+        <nav className="flex flex-col gap-2 px-4 py-6 text-sm">
+          {filteredNavigation.map((item) => {
+            if (item.children) {
+              const isExpanded = expandedGroups[item.label] ?? true
+              return (
+                <div key={item.label} className="space-y-1">
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between rounded-xl px-4 py-3 text-left font-semibold text-slate-200 transition hover:bg-slate-800/60"
+                    onClick={() =>
+                      setExpandedGroups((prev) => ({
+                        ...prev,
+                        [item.label]: !isExpanded,
+                      }))
+                    }
+                  >
+                    <span>{item.label}</span>
+                    <span className="text-xs uppercase tracking-widest text-slate-500">
+                      {isExpanded ? '−' : '+'}
+                    </span>
+                  </button>
+                  {isExpanded ? (
+                    <div className="space-y-1 pl-3">
+                      {item.children.map((child) => (
+                        <NavLink
+                          key={child.to}
+                          to={child.to}
+                          className={({ isActive }) =>
+                            [
+                              'flex items-center justify-between rounded-lg px-4 py-2 text-sm transition',
+                              isActive
+                                ? 'bg-emerald-500/10 text-emerald-200 ring-1 ring-inset ring-emerald-500/30'
+                                : 'text-slate-300 hover:bg-slate-800/60 hover:text-slate-100',
+                            ].join(' ')
+                          }
+                          onClick={() => setMobileNavOpen(false)}
+                        >
+                          <span>{child.label}</span>
+                        </NavLink>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              )
+            }
+
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === '/'}
+                className={({ isActive }) =>
+                  [
+                    'flex items-center justify-between rounded-xl px-4 py-3 font-medium transition',
+                    isActive
+                      ? 'bg-emerald-500/10 text-emerald-200 ring-1 ring-inset ring-emerald-500/30'
+                      : 'text-slate-300 hover:bg-slate-800/60 hover:text-slate-100',
+                  ].join(' ')
+                }
+                onClick={() => setMobileNavOpen(false)}
+              >
+                <span>{item.label}</span>
+                <span className="text-xs uppercase tracking-widest text-slate-500">
+                  {item.to === '/' ? 'overview' : ''}
+                </span>
+              </NavLink>
+            )
+          })}
         </nav>
 
         <div className="mt-auto px-6 pb-6">
@@ -130,8 +208,8 @@ export default function DashboardLayout() {
           </div>
         </header>
 
-        <main className="flex-1 bg-slate-950/95 px-4 py-6 sm:px-8 lg:px-10">
-          <div className="mx-auto w-full max-w-6xl space-y-8">
+        <main className="flex-1 bg-slate-950/95 px-4 py-6 sm:px-8 lg:px-10 overflow-x-hidden">
+          <div className="mx-auto w-full max-w-6xl space-y-8 overflow-x-hidden">
             <Outlet />
           </div>
         </main>

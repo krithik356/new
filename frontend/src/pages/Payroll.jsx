@@ -588,11 +588,12 @@ export default function PayrollPage() {
   }
 
   return (
-    <section className="space-y-8 w-full max-w-[1400px] mx-auto overflow-x-hidden">
-      <header>
+    
+    <section className="space-y-6 overflow-x-hidden">
+      <header className=" space-y-4">
         <p className="text-sm uppercase tracking-[0.4em] text-emerald-300/80">Payroll</p>
-        <h1 className="mt-2 text-3xl font-semibold text-slate-50">Cost & contribution overview</h1>
-        <p className="mt-3 max-w-3xl text-sm text-slate-400">
+        <h1 className="text-3xl font-semibold text-slate-50">Cost & contribution overview</h1>
+        <p className="max-w-2xl text-sm text-slate-400">
           Track departmental spend and evaluate contribution performance month-by-month. Use the cost view for salary decisions and the contribution view to monitor impact.
         </p>
         {user?.role === 'HOD' && user?.department && (
@@ -615,7 +616,7 @@ export default function PayrollPage() {
         </div>
       ) : null}
 
-      <section className="space-y-4 rounded-3xl border border-slate-800/70 bg-slate-900/60 p-6 shadow-inner shadow-black/30">
+      <section className="space-y-4 rounded-3xl border border-slate-800/70 bg-slate-900/60 p-4 sm:p-6 shadow-inner shadow-black/30 overflow-x-hidden">
         <div className="max-w-xl">
           <label className="text-xs font-medium uppercase tracking-[0.4em] text-slate-500">Employee search</label>
           <div className="relative mt-2">
@@ -698,24 +699,24 @@ export default function PayrollPage() {
                   </thead>
                   <tbody className="divide-y divide-slate-800/40">
                     {selectedEmployeeHistory.map((row) => (
-                      <tr key={`${selectedEmployee._id || selectedEmployee.id}-${row.month}`} className="bg-slate-950/30 text-nowrap">
-                        <td className="sticky left-0 bg-slate-950/30 px-4 py-3 font-semibold text-slate-50 shadow-[2px_0_4px_rgba(15,23,42,0.6)]">{row.month}</td>
-                        <td className="px-4 py-3 text-center text-slate-100">
+                      <tr key={`${selectedEmployee._id || selectedEmployee.id}-${row.month}`} className="bg-slate-950/30">
+                        <td className="sticky left-0 bg-slate-950/30 px-4 py-3 font-semibold text-slate-50 shadow-[2px_0_4px_rgba(15,23,42,0.6)] whitespace-nowrap">{row.month}</td>
+                        <td className="whitespace-nowrap px-4 py-3 text-center text-slate-100">
                           {row.academy !== null ? `${row.academy}%` : '—'}
                         </td>
-                        <td className="px-4 py-3 text-center text-slate-100">
+                        <td className="whitespace-nowrap px-4 py-3 text-center text-slate-100">
                           {row.intensive !== null ? `${row.intensive}%` : '—'}
                         </td>
-                        <td className="px-4 py-3 text-center text-slate-100">
+                        <td className="whitespace-nowrap px-4 py-3 text-center text-slate-100">
                           {row.niat !== null ? `${row.niat}%` : '—'}
                         </td>
-                        <td className="px-4 py-3 text-center text-emerald-300">
+                        <td className="whitespace-nowrap px-4 py-3 text-center text-emerald-300">
                           {row.total !== null ? `${row.total}%` : '—'}
                         </td>
-                        <td className="px-4 py-3 text-slate-100">
+                        <td className="whitespace-nowrap px-4 py-3 text-slate-100">
                           {row.salary ? formatCurrency(row.salary) : '—'}
                         </td>
-                        <td className="px-4 py-3 text-slate-400">{row.cycle}</td>
+                        <td className="whitespace-nowrap px-4 py-3 text-slate-400">{row.cycle}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -726,13 +727,13 @@ export default function PayrollPage() {
         ) : null}
       </section>
 
-      <section className="space-y-4 rounded-3xl border border-slate-800/70 bg-slate-900/60 p-6 shadow-inner shadow-black/30">
+      <section className="space-y-4 rounded-3xl border border-slate-800/70 bg-slate-900/60 p-3 sm:p-4 lg:p-6 shadow-inner shadow-black/30 overflow-x-hidden w-full max-w-full">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.4em] text-slate-500">Cost centre</p>
             <h2 className="mt-1 text-2xl font-semibold text-slate-50">Salary impact</h2>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:flex-wrap">
             <label className="flex flex-col text-xs font-medium uppercase tracking-widest text-slate-500">
               Month
               <select
@@ -770,17 +771,17 @@ export default function PayrollPage() {
           </div>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 w-full max-w-full overflow-x-hidden">
           <CostStat
             title="Total salary cost"
             value={formatCurrency(totalCost)}
             helper={isMonthSpecific ? `For ${monthFilter}` : 'Visible employees'}
           />
-          <CostStat
+          {/* <CostStat
             title="Average salary"
             value={formatCurrency(Math.round(averageSalary))}
             helper={isMonthSpecific ? `Per employee in ${monthFilter}` : 'Per employee'}
-          />
+          /> */}
           <CostStat
             title="Highest salary"
             value={formatCurrency(highestSalary)}
@@ -798,7 +799,7 @@ export default function PayrollPage() {
         ) : null}
       </section>
 
-      <section className="space-y-5 rounded-3xl border border-slate-800/70 bg-slate-900/60 p-6 shadow-inner shadow-black/30">
+      <section className="space-y-5 rounded-3xl border border-slate-800/70 bg-slate-900/60 p-4 sm:p-6 shadow-inner shadow-black/30 overflow-x-hidden">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.4em] text-slate-500">Contribution</p>
@@ -842,16 +843,16 @@ export default function PayrollPage() {
             {filteredEmployeesByDepartment.map((department) => (
               <div
                 key={department.id}
-                className="rounded-3xl border border-slate-800/70 bg-slate-900/60 shadow-inner shadow-black/30"
+                className="overflow-hidden rounded-3xl border border-slate-800/70 shadow-2xl shadow-black/30 w-full max-w-full"
               >
-                <div className="border-b border-slate-800/70 bg-slate-950/40 px-6 py-4">
+                <div className="border-b border-slate-800/80 bg-slate-950/80 px-4 py-3 sm:px-6 sm:py-4">
                   <h3 className="text-xl font-semibold text-slate-50">{department.name}</h3>
                   <p className="mt-1 text-sm text-slate-400">
                     {department.employees.length} employee{department.employees.length !== 1 ? 's' : ''}
                   </p>
                 </div>
 
-                <div className="px-6 py-6 space-y-6">
+                <div className="space-y-6 bg-slate-950/60 px-4 py-4 sm:px-6 sm:py-6">
                   {(() => {
                     const monthCandidates =
                       monthFilter === 'all' ? availableMonths : [monthFilter]
@@ -875,7 +876,7 @@ export default function PayrollPage() {
                     return departmentMonths.map((month) => (
                       <div
                         key={`${department.id}-${month}`}
-                        className="space-y-4 rounded-2xl border border-slate-800/70 bg-slate-950/40 p-4"
+                        className="space-y-4 rounded-2xl border border-slate-800/70 bg-slate-950/40 p-3 sm:p-4"
                       >
                         <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                           <div>
@@ -891,15 +892,15 @@ export default function PayrollPage() {
                           <table className="min-w-full divide-y divide-slate-800/60 text-left text-sm text-slate-200">
                             <thead className="bg-slate-900/40 text-xs uppercase tracking-widest text-slate-500">
                               <tr>
-                                <th className="w-28 px-4 py-3 font-semibold">Employee ID</th>
-                                <th className="w-40 px-4 py-3 font-semibold">Name</th>
-                                <th className="w-56 px-4 py-3 font-semibold">Role / Designation</th>
-                                <th className="w-64 px-4 py-3 font-semibold">Email</th>
-                                <th className="w-28 px-4 py-3 font-semibold text-center">Salary</th>
-                                <th className="w-24 px-4 py-3 font-semibold text-center">Academy %</th>
-                                <th className="w-24 px-4 py-3 font-semibold text-center">Intensive %</th>
-                                <th className="w-24 px-4 py-3 font-semibold text-center">NIAT %</th>
-                                <th className="w-20 px-4 py-3 font-semibold text-center">Total %</th>
+                                <th className="whitespace-nowrap px-4 py-3 font-semibold">Employee ID</th>
+                                <th className="whitespace-nowrap px-4 py-3 font-semibold">Name</th>
+                                <th className="whitespace-nowrap px-4 py-3 font-semibold">Role / Designation</th>
+                                <th className="whitespace-nowrap px-4 py-3 font-semibold">Email</th>
+                                <th className="whitespace-nowrap px-4 py-3 font-semibold text-center">Salary</th>
+                                <th className="whitespace-nowrap px-4 py-3 font-semibold text-center">Academy %</th>
+                                <th className="whitespace-nowrap px-4 py-3 font-semibold text-center">Intensive %</th>
+                                <th className="whitespace-nowrap px-4 py-3 font-semibold text-center">NIAT %</th>
+                                <th className="whitespace-nowrap px-4 py-3 font-semibold text-center">Total %</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800/40">
@@ -926,29 +927,29 @@ export default function PayrollPage() {
 
                                 return (
                                   <tr key={`${employee._id || employee.id}-${month}`} className="bg-slate-950/30">
-                                    <td className="px-4 py-3 text-slate-400">{employee.empId || '—'}</td>
-                                    <td className="px-4 py-3 font-semibold text-slate-50">
+                                    <td className="whitespace-nowrap px-4 py-3 text-slate-400">{employee.empId || '—'}</td>
+                                    <td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-50">
                                       {employee.name}
                                     </td>
-                                    <td className="px-4 py-3 text-slate-400">
+                                    <td className="whitespace-nowrap px-4 py-3 text-slate-400">
                                       {roleDisplay}
                                     </td>
-                                    <td className="px-4 py-3 text-slate-400">
+                                    <td className="whitespace-nowrap px-4 py-3 text-slate-400">
                                       {employee.email || '—'}
                                     </td>
-                                    <td className="px-4 py-3 text-center text-slate-100">
+                                    <td className="whitespace-nowrap px-4 py-3 text-center text-slate-100">
                                       {formatCurrency(displaySalary)}
                                     </td>
-                                    <td className="px-4 py-3 text-center text-slate-100">
+                                    <td className="whitespace-nowrap px-4 py-3 text-center text-slate-100">
                                       {academy !== null ? `${academy}%` : '—'}
                                     </td>
-                                    <td className="px-4 py-3 text-center text-slate-100">
+                                    <td className="whitespace-nowrap px-4 py-3 text-center text-slate-100">
                                       {intensive !== null ? `${intensive}%` : '—'}
                                     </td>
-                                    <td className="px-4 py-3 text-center text-slate-100">
+                                    <td className="whitespace-nowrap px-4 py-3 text-center text-slate-100">
                                       {niat !== null ? `${niat}%` : '—'}
                                     </td>
-                                    <td className="px-4 py-3 text-center font-semibold text-emerald-300">
+                                    <td className="whitespace-nowrap px-4 py-3 text-center font-semibold text-emerald-300">
                                       {total !== null ? `${total}%` : '—'}
                                     </td>
                                   </tr>
@@ -972,10 +973,10 @@ export default function PayrollPage() {
 
 function CostStat({ title, value, helper }) {
   return (
-    <article className="rounded-2xl border border-slate-800/70 bg-slate-950/50 p-4 shadow-inner shadow-black/20">
-      <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{title}</p>
-      <p className="mt-3 text-2xl font-semibold text-slate-50">{value}</p>
-      <p className="mt-1 text-xs text-slate-400">{helper}</p>
+    <article className="min-w-0 w-full max-w-full rounded-2xl border border-slate-800/70 bg-slate-950/50 p-2 sm:p-3 lg:p-4 shadow-inner shadow-black/20">
+      <p className="text-xs uppercase tracking-[0.35em] text-slate-500 truncate">{title}</p>
+      <p className="mt-2 sm:mt-3 text-lg sm:text-xl lg:text-2xl font-semibold text-slate-50 break-words">{value}</p>
+      <p className="mt-1 text-xs text-slate-400 truncate">{helper}</p>
     </article>
   )
 }
