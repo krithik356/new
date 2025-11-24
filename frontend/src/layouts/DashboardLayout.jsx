@@ -24,7 +24,7 @@ const navigation = [
       { to: '/non-payroll/interns', label: 'Interns', roles: ['Admin', 'HOD'] },
       { to: '/non-payroll/products', label: 'Products', roles: ['Admin', 'HOD'] },
       { to: '/non-payroll/spend-efficiency', label: 'Spend & Efficiency', roles: ['Admin', 'HOD'] },
-      { to: '/non-payroll/contracts-risks', label: 'Contracts & Risks', roles: ['Admin', 'HOD'] },
+      { to: '/non-payroll/contracts-risks', label: 'Contracts', roles: ['Admin', 'HOD'] },
     ],
   },
 ]
