@@ -3,6 +3,7 @@ const DEFAULT_DEPARTMENTS = [
   { value: 'tech', label: 'Tech' },
   { value: 'marketing', label: 'Marketing' },
   { value: 'design', label: 'Design' },
+  { value: 'sales', label: 'Sales' },
 ]
 
 export default function ExistingEmployeeToolbar({
@@ -11,8 +12,10 @@ export default function ExistingEmployeeToolbar({
   onDepartmentChange,
   onAddRow,
   onGenerateSheet,
+  onUploadSheet,
   loading,
   exporting,
+  uploading,
 }) {
   const isAdmin = role === 'Admin'
 
@@ -69,6 +72,14 @@ export default function ExistingEmployeeToolbar({
             className="inline-flex items-center justify-center rounded-2xl border border-cyan-400/50 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-200 transition hover:bg-cyan-500/20 hover:text-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {exporting ? 'Generating…' : 'Generate Sheet'}
+          </button>
+          <button
+            type="button"
+            onClick={onUploadSheet}
+            disabled={loading || uploading}
+            className="inline-flex items-center justify-center rounded-2xl border border-blue-400/50 bg-blue-500/10 px-4 py-2 text-sm font-semibold text-blue-200 transition hover:bg-blue-500/20 hover:text-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {uploading ? 'Uploading…' : 'Upload Sheet'}
           </button>
         </div>
       </div>

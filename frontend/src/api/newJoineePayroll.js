@@ -76,6 +76,37 @@ export const NewJoineePayrollAPI = {
 
     return { success: true, filename }
   },
+
+  uploadSheet: async (token, file, { department } = {}) => {
+    const params = new URLSearchParams()
+    if (department && department !== 'all') {
+      params.append('department', department)
+    }
+    const query = params.toString() ? `?${params.toString()}` : ''
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const response = await fetch(
+      `${API_BASE_URL}/api/payroll/new-joinees/upload${query}`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      }
+    )
+
+    const payload = await response.json().catch(() => null)
+
+    if (!response.ok) {
+      const message =
+        payload?.message ?? 'Failed to upload the new joinee sheet.'
+      throw new ApiError(message, response.status, payload)
+    }
+
+    return payload
+  },
 }
 
 

@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const ExcelJS = require("exceljs");
 const { ExistingEmployeePayroll } = require("../models/ExistingEmployeePayroll");
 const { Department } = require("../models/Department");
 const {
@@ -30,8 +31,66 @@ const editableFields = [
   "common",
 ];
 
+const columnDefinitions = [
+  { header: "EMP ID", key: "empId" },
+  { header: "EMP Name", key: "empName" },
+  { header: "DOJ", key: "doj", isDate: true },
+  { header: "DOE", key: "doe", isDate: true },
+  { header: "Month", key: "month" },
+  { header: "Designation", key: "designation" },
+  { header: "Department", key: "departmentLabel" },
+  { header: "Top Department", key: "topDepartment" },
+  { header: "Type", key: "type" },
+  { header: "Source Department", key: "sourceDepartment" },
+  { header: "Benficiary Department", key: "beneficiaryDepartment" },
+  { header: "Source HOD", key: "sourceHod" },
+  { header: "Benficiary HOD", key: "beneficiaryHod" },
+  { header: "WFO/WFH", key: "workMode" },
+  { header: "Employee Type", key: "employeeType" },
+  { header: "Academy", key: "academy" },
+  { header: "Intensive", key: "intensive" },
+  { header: "NIAT Batch 1&2", key: "niatBatch12" },
+  { header: "NIAT Batch 3", key: "niatBatch3" },
+  { header: "NIAT Batch 4", key: "niatBatch4" },
+  { header: "Others", key: "others" },
+  { header: "Common", key: "common" },
+];
+
+const percentageFields = [
+  "academy",
+  "intensive",
+  "niatBatch12",
+  "niatBatch3",
+  "niatBatch4",
+  "others",
+  "common",
+];
+
 function normalizeDepartmentKey(value) {
   return value ? value.toString().trim().toLowerCase().replace(/\s+/g, "-") : "";
+}
+
+async function findDepartmentMetaFromLabel(label) {
+  if (!label) {
+    return null;
+  }
+
+  const regex = new RegExp(`^${label.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
+  const department = await Department.findOne({
+    $or: [{ name: regex }, { code: regex }],
+  })
+    .select("name code")
+    .lean();
+
+  if (!department) {
+    return null;
+  }
+
+  return {
+    departmentId: department._id,
+    departmentKey: normalizeDepartmentKey(department.code || department.name),
+    departmentLabel: department.name || department.code || "",
+  };
 }
 
 async function resolveDepartmentContext({ role, userDepartment, payload }) {
@@ -83,11 +142,21 @@ async function resolveDepartmentContext({ role, userDepartment, payload }) {
   }
 
   if (payload.departmentKey || payload.departmentLabel) {
+    const fallbackKey = normalizeDepartmentKey(
+      payload.departmentKey || payload.departmentLabel
+    );
+
+    const inferredDepartment = await findDepartmentMetaFromLabel(
+      payload.departmentLabel || payload.departmentKey
+    );
+
+    if (inferredDepartment) {
+      return inferredDepartment;
+    }
+
     return {
       departmentId: null,
-      departmentKey: normalizeDepartmentKey(
-        payload.departmentKey || payload.departmentLabel
-      ),
+      departmentKey: fallbackKey,
       departmentLabel: payload.departmentLabel || payload.departmentKey || "",
     };
   }
@@ -97,6 +166,30 @@ async function resolveDepartmentContext({ role, userDepartment, payload }) {
     departmentKey: "",
     departmentLabel: "",
   };
+}
+
+function toNumber(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  const parsed = parseFloat(value);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+function validatePercentageAllocation(payload) {
+  const values = percentageFields
+    .map((field) => toNumber(payload[field]))
+    .filter((value) => value !== null);
+
+  if (values.length === 0) {
+    return;
+  }
+
+  const total = values.reduce((sum, value) => sum + value, 0);
+
+  if (Math.round(total * 100) / 100 !== 100) {
+    throw new Error("Allocation percentages must equal 100%.");
+  }
 }
 
 function pickEditableFields(body) {
@@ -117,6 +210,52 @@ function normalizeDates(payload) {
     cloned.doe = new Date(cloned.doe);
   }
   return cloned;
+}
+
+function validateWorksheetColumns(worksheet) {
+  const headerRow = worksheet.getRow(1);
+  const receivedHeaders = headerRow.values
+    .slice(1)
+    .map((cell) => (cell || "").toString().trim());
+
+  if (receivedHeaders.length !== columnDefinitions.length) {
+    throw new Error("Columns do not match the required format.");
+  }
+
+  columnDefinitions.forEach((column, index) => {
+    if (receivedHeaders[index] !== column.header) {
+      throw new Error("Columns do not match the required format.");
+    }
+  });
+}
+
+function mapRowToPayload(row) {
+  const payload = {};
+
+  columnDefinitions.forEach((column, index) => {
+    const cell = row.getCell(index + 1).value;
+    if (column.isDate) {
+      if (!cell) {
+        payload[column.key] = null;
+      } else if (cell instanceof Date) {
+        payload[column.key] = cell;
+      } else if (cell?.result) {
+        const date = new Date(cell.result);
+        payload[column.key] = Number.isNaN(date.getTime()) ? null : date;
+      } else {
+        const date = new Date(cell);
+        payload[column.key] = Number.isNaN(date.getTime()) ? null : date;
+      }
+    } else if (typeof cell === "object" && cell?.text) {
+      payload[column.key] = cell.text.trim();
+    } else if (cell === null || cell === undefined) {
+      payload[column.key] = "";
+    } else {
+      payload[column.key] = cell.toString().trim();
+    }
+  });
+
+  return payload;
 }
 
 async function listExistingEmployees(req, res) {
@@ -224,6 +363,8 @@ async function createExistingEmployee(req, res) {
       updatedBy: userId,
     });
 
+    validatePercentageAllocation(payload);
+
     const record = await ExistingEmployeePayroll.create(payload);
 
     return res.status(201).json({
@@ -296,6 +437,8 @@ async function updateExistingEmployee(req, res) {
       updatedBy: userId,
     });
 
+    validatePercentageAllocation({ ...record.toObject(), ...updates });
+
     if (departmentMeta) {
       updates.department = departmentMeta.departmentId;
       updates.departmentKey = departmentMeta.departmentKey;
@@ -351,12 +494,101 @@ async function deleteExistingEmployee(req, res) {
   }
 }
 
+async function uploadExistingEmployeesSheet(req, res) {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Please upload a valid .xlsx file.",
+      });
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(req.file.buffer);
+
+    const worksheet = workbook.worksheets[0];
+    if (!worksheet) {
+      return res.status(400).json({
+        success: false,
+        message: "Uploaded workbook is empty.",
+      });
+    }
+
+    validateWorksheetColumns(worksheet);
+
+    const { role, id: userId, department: userDepartment } = req.user;
+
+    for (let rowIndex = 2; rowIndex <= worksheet.rowCount; rowIndex += 1) {
+      const row = worksheet.getRow(rowIndex);
+      if (row.values.filter(Boolean).length === 0) {
+        continue;
+      }
+
+      const mappedPayload = mapRowToPayload(row);
+
+      validatePercentageAllocation(mappedPayload);
+
+      const departmentMeta = await resolveDepartmentContext({
+        role,
+        userDepartment,
+        payload: {
+          departmentKey: mappedPayload.departmentLabel,
+          departmentLabel: mappedPayload.departmentLabel,
+        },
+      });
+
+      const payload = normalizeDates({
+        ...mappedPayload,
+        department: departmentMeta.departmentId,
+        departmentKey: departmentMeta.departmentKey,
+        departmentLabel: departmentMeta.departmentLabel,
+        updatedBy: userId,
+      });
+
+      if (!payload.empName?.trim()) {
+        throw new Error(
+          `Row ${rowIndex}: Employee name is required before import.`
+        );
+      }
+
+      const identifier = payload.empId?.trim();
+      let record = null;
+
+      if (identifier) {
+        record = await ExistingEmployeePayroll.findOne({ empId: identifier });
+      }
+
+      if (record) {
+        Object.assign(record, payload);
+        await record.save();
+      } else {
+        await ExistingEmployeePayroll.create({
+          ...payload,
+          createdBy: userId,
+        });
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Sheet uploaded successfully.",
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message:
+        error.message || "Unable to process the uploaded existing employee sheet.",
+    });
+  }
+}
+
 module.exports = {
   listExistingEmployees,
   exportExistingEmployees,
   createExistingEmployee,
   updateExistingEmployee,
   deleteExistingEmployee,
+  uploadExistingEmployeesSheet,
 };
 
 

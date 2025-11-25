@@ -1,8 +1,10 @@
 const { Router } = require("express");
 const { body, query, param } = require("express-validator");
+const multer = require("multer");
 const {
   listNewJoinees,
   exportNewJoineeSheet,
+  uploadNewJoineeSheet,
   createNewJoinee,
   updateNewJoinee,
   deleteNewJoinee,
@@ -12,6 +14,10 @@ const { authorizeRole } = require("../middleware/authorize");
 const { validateRequest } = require("../middleware/validateRequest");
 
 const router = Router();
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
 
 router.use(authenticate);
 
@@ -33,6 +39,12 @@ router.get(
     validateRequest,
   ],
   exportNewJoineeSheet
+);
+
+router.post(
+  "/upload",
+  [authorizeRole("Admin", "HOD"), upload.single("file")],
+  uploadNewJoineeSheet
 );
 
 const sharedFieldValidators = [

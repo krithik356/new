@@ -1,17 +1,23 @@
 const { Router } = require("express");
 const { body, param, query } = require("express-validator");
+const multer = require("multer");
 const {
   listExistingEmployees,
   exportExistingEmployees,
   createExistingEmployee,
   updateExistingEmployee,
   deleteExistingEmployee,
+  uploadExistingEmployeesSheet,
 } = require("../controllers/existingEmployeePayrollController");
 const { authenticate } = require("../middleware/authenticate");
 const { authorizeRole } = require("../middleware/authorize");
 const { validateRequest } = require("../middleware/validateRequest");
 
 const router = Router();
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
 
 router.use(authenticate);
 
@@ -74,6 +80,12 @@ router.delete(
   "/:id",
   [authorizeRole("Admin"), param("id").isString().trim(), validateRequest],
   deleteExistingEmployee
+);
+
+router.post(
+  "/upload",
+  [authorizeRole("Admin", "HOD"), upload.single("file")],
+  uploadExistingEmployeesSheet
 );
 
 module.exports = router;

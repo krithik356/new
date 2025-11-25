@@ -44,6 +44,7 @@ export default function ExistingEmployeeTable({
   onFieldChange,
   onSaveRow,
   onDeleteRow,
+  rowErrors = {},
 }) {
   const isAdmin = role === 'Admin'
 
@@ -87,55 +88,63 @@ export default function ExistingEmployeeTable({
                 </td>
               </tr>
             ) : (
-              rows.map((row) => (
-                <tr
-                  key={row._id}
-                  className="border-t border-slate-900/60 hover:bg-slate-900/40"
-                >
-                  {columns.map((column) => {
-                    const isDateField = DATE_FIELDS.has(column.key)
-                    const value = row[column.key] ?? ''
-                    return (
-                      <td key={column.key} className="px-4 py-3 align-top">
-                        <input
-                          type={isDateField ? 'date' : 'text'}
-                          value={value}
-                          onChange={(event) =>
-                            onFieldChange(
-                              row._id,
-                              column.key,
-                              event.target.value
-                            )
-                          }
-                          style={buildInputStyle(column, value, isDateField)}
-                          className="rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
-                        />
-                      </td>
-                    )
-                  })}
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex flex-col gap-2 text-xs text-slate-400">
-                      <button
-                        type="button"
-                        onClick={() => onSaveRow(row)}
-                        disabled={savingId === row._id}
-                        className="rounded-xl border border-emerald-500/40 bg-emerald-500/20 px-3 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-emerald-200 transition hover:bg-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {row._id.startsWith('temp-') ? 'Save' : 'Update'}
-                      </button>
-                      {isAdmin && row._id && !row._id.startsWith('temp-') ? (
+              rows.map((row) => {
+                const rowError = rowErrors[row._id]
+                return (
+                  <tr
+                    key={row._id}
+                    className="border-t border-slate-900/60 hover:bg-slate-900/40"
+                  >
+                    {columns.map((column) => {
+                      const isDateField = DATE_FIELDS.has(column.key)
+                      const value = row[column.key] ?? ''
+                      return (
+                        <td key={column.key} className="px-4 py-3 align-top">
+                          <input
+                            type={isDateField ? 'date' : 'text'}
+                            value={value}
+                            onChange={(event) =>
+                              onFieldChange(
+                                row._id,
+                                column.key,
+                                event.target.value
+                              )
+                            }
+                            style={buildInputStyle(column, value, isDateField)}
+                            className="rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+                          />
+                        </td>
+                      )
+                    })}
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex flex-col gap-2 text-xs text-slate-400">
                         <button
                           type="button"
-                          onClick={() => onDeleteRow(row)}
-                          className="rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-red-300 transition hover:bg-red-500/20"
+                          onClick={() => onSaveRow(row)}
+                          disabled={savingId === row._id || Boolean(rowError)}
+                          className="rounded-xl border border-emerald-500/40 bg-emerald-500/20 px-3 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-emerald-200 transition hover:bg-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                          Delete
+                          {row._id.startsWith('temp-') ? 'Save' : 'Update'}
                         </button>
-                      ) : null}
-                    </div>
-                  </td>
-                </tr>
-              ))
+                        {isAdmin && row._id && !row._id.startsWith('temp-') ? (
+                          <button
+                            type="button"
+                            onClick={() => onDeleteRow(row)}
+                            className="rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-red-300 transition hover:bg-red-500/20"
+                          >
+                            Delete
+                          </button>
+                        ) : null}
+                        {rowError ? (
+                          <p className="text-[0.65rem] uppercase tracking-[0.3em] text-red-400">
+                            {rowError}
+                          </p>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })
             )}
           </tbody>
         </table>
