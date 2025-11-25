@@ -1,6 +1,6 @@
 const DEFAULT_PROD_API = 'https://backend-rz5x.onrender.com'
 const DEFAULT_DEV_API = 'http://localhost:5001'
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? DEFAULT_DEV_API : DEFAULT_PROD_API)
+export const API_BASE_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? DEFAULT_DEV_API : DEFAULT_PROD_API)
 const REQUEST_TIMEOUT_MS = 15000
 
 export class ApiError extends Error {
@@ -203,82 +203,6 @@ export const apiClient = {
 
     return { success: true, filename }
   },
-
-  // Monthly Salary endpoints
-  createOrUpdateMonthlySalary: (token, employeeId, { month, year, salary, cycle }) =>
-    request(`/api/monthly-salaries/employee/${employeeId}`, {
-      method: 'PUT',
-      body: { month, year, salary, cycle },
-      token,
-    }),
-
-  getEmployeeMonthlySalaries: (token, employeeId, { year } = {}) => {
-    const query = year ? `?year=${year}` : ''
-    return request(`/api/monthly-salaries/employee/${employeeId}${query}`, { token })
-  },
-
-  getDepartmentMonthlySalaries: (token, departmentId, { month, year, cycle } = {}) => {
-    const params = new URLSearchParams()
-    if (month) params.append('month', month)
-    if (year) params.append('year', year)
-    if (cycle) params.append('cycle', cycle)
-    const query = params.toString() ? `?${params.toString()}` : ''
-    return request(`/api/monthly-salaries/department/${departmentId}${query}`, { token })
-  },
-
-  bulkCreateMonthlySalaries: (token, salaries) =>
-    request('/api/monthly-salaries/bulk', {
-      method: 'POST',
-      body: { salaries },
-      token,
-    }),
-
-  getMonthlySalaries: (token, { month, year, departmentId } = {}) => {
-    const params = new URLSearchParams()
-    if (month) params.append('month', month)
-    if (year) params.append('year', year)
-    if (departmentId) params.append('departmentId', departmentId)
-    const query = params.toString() ? `?${params.toString()}` : ''
-    return request(`/api/monthly-salaries${query}`, { token })
-  },
-
-  // Non-payroll endpoints
-  getNonPayrollOverview: (token) => request('/api/non-payroll/overview', { token }),
-
-  getNonPayrollContractors: (token, { departmentId, status } = {}) => {
-    const params = new URLSearchParams()
-    if (departmentId) params.append('departmentId', departmentId)
-    if (status) params.append('status', status)
-    const query = params.toString() ? `?${params.toString()}` : ''
-    return request(`/api/non-payroll/contractors${query}`, { token })
-  },
-
-  getNonPayrollVendors: (token, { departmentId } = {}) => {
-    const params = new URLSearchParams()
-    if (departmentId) params.append('departmentId', departmentId)
-    const query = params.toString() ? `?${params.toString()}` : ''
-    return request(`/api/non-payroll/vendors${query}`, { token })
-  },
-
-  getNonPayrollInterns: (token, { departmentId } = {}) => {
-    const params = new URLSearchParams()
-    if (departmentId) params.append('departmentId', departmentId)
-    const query = params.toString() ? `?${params.toString()}` : ''
-    return request(`/api/non-payroll/interns${query}`, { token })
-  },
-
-  getNonPayrollProducts: (token) => request('/api/non-payroll/products', { token }),
-
-  getNonPayrollSpendEfficiency: (token, { year, month } = {}) => {
-    const params = new URLSearchParams()
-    if (year) params.append('year', year)
-    if (month && month !== 'all') params.append('month', month)
-    const query = params.toString() ? `?${params.toString()}` : ''
-    return request(`/api/non-payroll/spend-efficiency${query}`, { token })
-  },
-
-  getNonPayrollContractsRisks: (token) =>
-    request('/api/non-payroll/contracts-risks', { token }),
 }
 
-
+export { request }

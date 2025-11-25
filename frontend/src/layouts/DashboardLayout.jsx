@@ -12,21 +12,8 @@ const MODE_OPTIONS = [
 const navigation = [
   { to: '/', label: 'Overview', roles: ['Admin', 'HOD'] },
   { to: '/employees', label: 'Employees', roles: ['Admin', 'HOD'] },
-  { to: '/payroll', label: 'Payroll', rolcones: ['Admin', 'HOD'] },
+  { to: '/payroll', label: 'Payroll', roles: ['Admin', 'HOD'] },
   { to: '/departments', label: 'Departments', roles: ['Admin'] },
-  {
-    label: 'Non-Payroll',
-    roles: ['Admin', 'HOD'],
-    children: [
-      { to: '/non-payroll/overview', label: 'Overview', roles: ['Admin'] },
-      { to: '/non-payroll/contractors', label: 'Contractors', roles: ['Admin', 'HOD'] },
-      { to: '/non-payroll/vendors', label: 'Vendors', roles: ['Admin', 'HOD'] },
-      { to: '/non-payroll/interns', label: 'Interns', roles: ['Admin', 'HOD'] },
-      { to: '/non-payroll/products', label: 'Products', roles: ['Admin', 'HOD'] },
-      { to: '/non-payroll/spend-efficiency', label: 'Spend & Efficiency', roles: ['Admin', 'HOD'] },
-      { to: '/non-payroll/contracts-risks', label: 'Contracts', roles: ['Admin', 'HOD'] },
-    ],
-  },
 ]
 
 export default function DashboardLayout() {
