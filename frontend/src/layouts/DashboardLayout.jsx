@@ -13,6 +13,7 @@ const navigation = [
   { to: '/', label: 'Overview', roles: ['Admin', 'HOD'] },
   { to: '/employees', label: 'Employees', roles: ['Admin', 'HOD'] },
   { to: '/payroll', label: 'Payroll', roles: ['Admin', 'HOD'] },
+  { to: '/non-payroll', label: 'Non-Payroll', roles: ['Admin', 'HOD'] },
   { to: '/departments', label: 'Departments', roles: ['Admin'] },
 ]
 

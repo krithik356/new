@@ -12,6 +12,7 @@ const contributionRoutes = require("./routes/contribution.routes");
 const exportRoutes = require("./routes/export.routes");
 const newJoineePayrollRoutes = require("./routes/newJoineePayroll.routes");
 const existingEmployeePayrollRoutes = require("./routes/existingEmployeePayroll.routes");
+const nonPayrollRoutes = require("./routes/nonPayroll.routes");
 
 const { connectDB, disconnectDB } = require("./config/db");
 const { notFound, errorHandler } = require("./middleware/errorHandler");
@@ -92,6 +93,7 @@ app.use("/api/contributions", contributionRoutes);
 app.use("/api/contributions/export", exportRoutes);
 app.use("/api/payroll/new-joinees", newJoineePayrollRoutes);
 app.use("/api/payroll/existing-employees", existingEmployeePayrollRoutes);
+app.use("/api/non-payroll", nonPayrollRoutes);
 
 // 404 handler
 app.use(notFound);

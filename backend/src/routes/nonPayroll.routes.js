@@ -1,39 +1,44 @@
 const express = require("express");
+const multer = require("multer");
+
+const {
+  listNonPayrollItems,
+  createNonPayrollItem,
+  updateNonPayrollItem,
+  deleteNonPayrollItem,
+  exportNonPayrollItems,
+  uploadNonPayrollItems,
+} = require("../controllers/nonPayrollController");
 const { authenticate } = require("../middleware/authenticate");
 const { authorizeRole } = require("../middleware/authorize");
-const {
-  getOverview,
-  getContractors,
-  getVendors,
-  getInterns,
-  getProducts,
-  getSpendEfficiency,
-  getContractsAndRisks,
-} = require("../controllers/nonPayrollController");
 
 const router = express.Router();
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
 
 router.use(authenticate);
 
-router.get("/overview", authorizeRole("Admin"), getOverview);
 router.get(
-  "/contractors",
+  "/export",
   authorizeRole("Admin", "HOD"),
-  getContractors
+  exportNonPayrollItems
 );
-router.get("/vendors", authorizeRole("Admin", "HOD"), getVendors);
-router.get("/interns", authorizeRole("Admin", "HOD"), getInterns);
-router.get("/products", authorizeRole("Admin", "HOD"), getProducts);
-router.get(
-  "/spend-efficiency",
+
+router.get("/", authorizeRole("Admin", "HOD"), listNonPayrollItems);
+
+router.post("/", authorizeRole("Admin", "HOD"), createNonPayrollItem);
+
+router.put("/:id", authorizeRole("Admin", "HOD"), updateNonPayrollItem);
+
+router.delete("/:id", authorizeRole("Admin", "HOD"), deleteNonPayrollItem);
+
+router.post(
+  "/upload",
   authorizeRole("Admin", "HOD"),
-  getSpendEfficiency
-);
-router.get(
-  "/contracts-risks",
-  authorizeRole("Admin", "HOD"),
-  getContractsAndRisks
+  upload.single("file"),
+  uploadNonPayrollItems
 );
 
 module.exports = router;
-
