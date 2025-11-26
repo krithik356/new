@@ -292,13 +292,6 @@ export default function DashboardPage() {
   }, [token, user?.role, user?.department?.id])
 
   const contributionStats = aggregateContributions(filteredContributions)
-  const recentPayrollUpdates = filteredContributions
-    .slice()
-    .sort(
-      (a, b) =>
-        new Date(b.submittedAt ?? b.updatedAt ?? 0) - new Date(a.submittedAt ?? a.updatedAt ?? 0)
-    )
-    .slice(0, 4)
   const currentDepartment =
     user?.department && departments.length === 0
       ? user.department
@@ -549,71 +542,6 @@ export default function DashboardPage() {
               />
             )}
           </section>
-          <section className="grid gap-6 lg:grid-cols-5">
-            <div className="space-y-6 lg:col-span-3">
-              <div className="rounded-3xl border border-slate-800/70 bg-slate-900/60 px-6 py-6 shadow-inner shadow-black/30">
-                <header className="flex items-center justify-between gap-4">
-                  <div>
-                    <h2 className="text-lg font-semibold text-slate-100">Recent payroll updates</h2>
-                    <p className="text-xs text-slate-500">Latest submissions impacting salary allocations.</p>
-                  </div>
-                  <Link
-                    to="/payroll"
-                    className="inline-flex items-center gap-2 rounded-xl border border-slate-800 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-slate-700 hover:bg-slate-800/80"
-                  >
-                    View payroll →
-                  </Link>
-                </header>
-
-                <div className="mt-5 space-y-4">
-                  {loading ? (
-                    <SkeletonRows count={3} />
-                  ) : recentPayrollUpdates.length === 0 ? (
-                    <p className="rounded-2xl border border-slate-800/60 bg-slate-900/80 px-4 py-6 text-sm text-slate-400">
-                      No payroll updates are available for your role yet.
-                    </p>
-                  ) : (
-                    recentPayrollUpdates.map((entry) => {
-                      const formattedDate = entry.submittedAt
-                        ? new Date(entry.submittedAt).toLocaleDateString(undefined, {
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })
-                        : '—'
-
-                      return (
-                        <article
-                          key={entry.id ?? `${entry.department?._id ?? entry.department}-${entry.cycle ?? 'default'}`}
-                          className="rounded-2xl border border-slate-800/60 bg-slate-900/70 px-4 py-4 shadow-sm shadow-black/20"
-                        >
-                          <div className="flex flex-wrap items-start justify-between gap-4">
-                            <div>
-                              <p className="text-sm font-semibold text-slate-100">
-                                {entry.department?.name ?? 'Department update'}
-                              </p>
-                              <p className="text-xs uppercase tracking-widest text-emerald-300/70">
-                                Cycle {entry.cycle ?? 'default'}
-                              </p>
-                              <p className="mt-1 text-xs text-slate-500">
-                                Submitted {formattedDate} · {entry.submittedBy?.name ?? 'Automated'}
-                              </p>
-                            </div>
-                            <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-200">
-                              Payroll refresh
-                            </span>
-                          </div>
-                          <div className="mt-4 grid gap-3 text-xs text-slate-400 sm:grid-cols-3">
-                            <Metric label="Academy" value={`${entry.academy ?? '—'}%`} />
-                            <Metric label="Intensive" value={`${entry.intensive ?? '—'}%`} />
-                            <Metric label="NIAT" value={`${entry.niat ?? '—'}%`} />
-                          </div>
-                        </article>
-                      )
-                    })
-                  )}
-=======
           {user?.role === 'HOD' ? (
             <section className="rounded-3xl border border-slate-800/70 bg-slate-900/60 p-6 shadow-inner shadow-black/30">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -771,7 +699,8 @@ export default function DashboardPage() {
               )}
             </div>
           </section>
-        )}
+        </>
+      )}
     </div>
   )
 }
