@@ -95,7 +95,7 @@ export const apiClient = {
     const response = await fetch(`${API_BASE_URL}${url}`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
       },
     })
 
@@ -105,7 +105,6 @@ export const apiClient = {
       throw new ApiError(message, response.status, payload)
     }
 
-    // Get the blob and create download link
     const blob = await response.blob()
     const downloadUrl = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
@@ -128,7 +127,7 @@ export const apiClient = {
     const response = await fetch(`${API_BASE_URL}${url}`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
       },
     })
 
@@ -138,7 +137,6 @@ export const apiClient = {
       throw new ApiError(message, response.status, payload)
     }
 
-    // Get the blob and create download link
     const blob = await response.blob()
     const downloadUrl = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
@@ -169,7 +167,7 @@ export const apiClient = {
     const response = await fetch(`${API_BASE_URL}${url}`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
       },
     })
 
@@ -179,7 +177,6 @@ export const apiClient = {
       throw new ApiError(message, response.status, payload)
     }
 
-    // Get the blob and create download link
     const blob = await response.blob()
     const downloadUrl = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
@@ -235,6 +232,70 @@ export const apiClient = {
     return request(`/api/monthly-salaries${query}`, { token })
   },
 
-}
+  getExistingEmployeePayroll: (token, { department } = {}) => {
+    const params = new URLSearchParams()
+    if (department) {
+      params.append('department', department)
+    }
+    const query = params.toString() ? `?${params.toString()}` : ''
+    return request(`/api/payroll/existing-employees${query}`, { token })
+  },
 
+  createExistingEmployeePayroll: (token, payload) =>
+    request('/api/payroll/existing-employees', {
+      method: 'POST',
+      body: payload,
+      token,
+    }),
+
+  updateExistingEmployeePayroll: (token, id, payload) =>
+    request(`/api/payroll/existing-employees/${id}`, {
+      method: 'PUT',
+      body: payload,
+      token,
+    }),
+
+  deleteExistingEmployeePayroll: (token, id) =>
+    request(`/api/payroll/existing-employees/${id}`, {
+      method: 'DELETE',
+      token,
+    }),
+
+  exportExistingEmployeePayrollSheet: async (token, { department } = {}) => {
+    const params = new URLSearchParams()
+    if (department) {
+      params.append('department', department)
+    }
+    const query = params.toString() ? `?${params.toString()}` : ''
+    const url = `/api/payroll/existing-employees/export/sheet${query}`
+
+    const response = await fetch(`${API_BASE_URL}${url}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+
+    if (!response.ok) {
+      const payload = await parseJsonSafely(response)
+      const message = payload?.message ?? 'Failed to export sheet.'
+      throw new ApiError(message, response.status, payload)
+    }
+
+    const blob = await response.blob()
+    const downloadUrl = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = downloadUrl
+    const filename =
+      response.headers.get('Content-Disposition')?.split('filename=')[1]?.replace(/"/g, '') ||
+      'existing_employee_payroll.xlsx'
+    link.setAttribute('download', filename)
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(downloadUrl)
+
+    return { success: true, filename }
+  },
+}
 
