@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 export default function SearchableSelect({
   id,
@@ -23,7 +23,7 @@ export default function SearchableSelect({
   const selectedOption = options.find((opt) => String(opt.id) === String(normalizedValue))
 
   const filteredOptions = options.filter((option) =>
-    option.name.toLowerCase().includes(searchQuery.toLowerCase())
+    option.name?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   useEffect(() => {
@@ -60,8 +60,8 @@ export default function SearchableSelect({
       <div className="mt-2">
         <button
           type="button"
-          onClick={() => setIsOpen(!isOpen)}
-          className="w-full rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-2.5 text-left text-sm text-slate-100 shadow-inner shadow-black/30 transition focus:border-emerald-400/80 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 hover:border-slate-700"
+          onClick={() => setIsOpen((prev) => !prev)}
+          className="w-full rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-2.5 text-left text-sm text-slate-100 shadow-inner shadow-black/30 transition hover:border-slate-700 focus:border-emerald-400/80 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
         >
           <div className="flex items-center justify-between">
             <span className={selectedOption ? 'text-slate-100' : 'text-slate-500'}>
@@ -85,10 +85,10 @@ export default function SearchableSelect({
                 ref={inputRef}
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder={searchPlaceholder}
                 className="w-full rounded-xl border border-slate-800 bg-slate-900/80 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-emerald-400/80 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
-                onClick={(e) => e.stopPropagation()}
+                onClick={(event) => event.stopPropagation()}
               />
             </div>
             <div className="max-h-60 overflow-auto">
@@ -135,4 +135,5 @@ export default function SearchableSelect({
     </div>
   )
 }
+
 

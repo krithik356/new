@@ -6,6 +6,7 @@ import DashboardPage from './pages/Dashboard.jsx'
 import DepartmentsPage from './pages/Departments.jsx'
 import EmployeesPage from './pages/Employees.jsx'
 import PayrollPage from './pages/Payroll.jsx'
+import NonPayrollPage from './pages/NonPayroll.jsx'
 import LoginPage from './pages/Login.jsx'
 import { useAuth } from './providers/AuthProvider.jsx'
 import { ViewModeProvider } from './providers/ViewModeProvider.jsx'
@@ -51,6 +52,7 @@ function App() {
           <Route index element={<DashboardPage />} />
           <Route path="employees" element={<AdminOrHodRoute><EmployeesPage /></AdminOrHodRoute>} />
           <Route path="payroll" element={<PayrollPage />} />
+          <Route path="non-payroll" element={<AdminOrHodRoute><NonPayrollPage /></AdminOrHodRoute>} />
           <Route path="departments" element={<AdminOnlyRoute><DepartmentsPage /></AdminOnlyRoute>} />
         </Route>
       </Route>

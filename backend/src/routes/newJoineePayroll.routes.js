@@ -1,14 +1,14 @@
 const { Router } = require("express");
-const { body, param, query } = require("express-validator");
+const { body, query, param } = require("express-validator");
 const multer = require("multer");
 const {
-  listExistingEmployees,
-  exportExistingEmployees,
-  createExistingEmployee,
-  updateExistingEmployee,
-  deleteExistingEmployee,
-  uploadExistingEmployeesSheet,
-} = require("../controllers/existingEmployeePayrollController");
+  listNewJoinees,
+  exportNewJoineeSheet,
+  uploadNewJoineeSheet,
+  createNewJoinee,
+  updateNewJoinee,
+  deleteNewJoinee,
+} = require("../controllers/newJoineePayrollController");
 const { authenticate } = require("../middleware/authenticate");
 const { authorizeRole } = require("../middleware/authorize");
 const { validateRequest } = require("../middleware/validateRequest");
@@ -28,7 +28,7 @@ router.get(
     query("department").optional().isString().trim(),
     validateRequest,
   ],
-  listExistingEmployees
+  listNewJoinees
 );
 
 router.get(
@@ -38,7 +38,13 @@ router.get(
     query("department").optional().isString().trim(),
     validateRequest,
   ],
-  exportExistingEmployees
+  exportNewJoineeSheet
+);
+
+router.post(
+  "/upload",
+  [authorizeRole("Admin", "HOD"), upload.single("file")],
+  uploadNewJoineeSheet
 );
 
 const sharedFieldValidators = [
@@ -53,7 +59,7 @@ router.post(
   "/",
   [
     authorizeRole("Admin", "HOD"),
-    body("empName")
+    body("employeeName")
       .isString()
       .withMessage("Employee name is required.")
       .trim()
@@ -61,7 +67,7 @@ router.post(
     ...sharedFieldValidators,
     validateRequest,
   ],
-  createExistingEmployee
+  createNewJoinee
 );
 
 router.put(
@@ -69,25 +75,18 @@ router.put(
   [
     authorizeRole("Admin", "HOD"),
     param("id").isString().trim(),
-    body("empName").optional().isString().trim().notEmpty(),
+    body("employeeName").optional().isString().trim().notEmpty(),
     ...sharedFieldValidators,
     validateRequest,
   ],
-  updateExistingEmployee
+  updateNewJoinee
 );
 
 router.delete(
   "/:id",
   [authorizeRole("Admin"), param("id").isString().trim(), validateRequest],
-  deleteExistingEmployee
-);
-
-router.post(
-  "/upload",
-  [authorizeRole("Admin", "HOD"), upload.single("file")],
-  uploadExistingEmployeesSheet
+  deleteNewJoinee
 );
 
 module.exports = router;
-
 

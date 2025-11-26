@@ -13,18 +13,36 @@ const navigation = [
   { to: '/', label: 'Overview', roles: ['Admin', 'HOD'] },
   { to: '/employees', label: 'Employees', roles: ['Admin', 'HOD'] },
   { to: '/payroll', label: 'Payroll', roles: ['Admin', 'HOD'] },
+  { to: '/non-payroll', label: 'Non-Payroll', roles: ['Admin', 'HOD'] },
   { to: '/departments', label: 'Departments', roles: ['Admin'] },
 ]
 
 export default function DashboardLayout() {
   const { user, signOut } = useAuth()
   const { mode, setMode } = useViewMode()
-  
-  const filteredNavigation = navigation.filter((item) => {
-    if (!item.roles) return true
-    return item.roles.includes(user?.role)
-  })
+
+  const filteredNavigation = navigation
+    .map((item) => {
+      if (item.children) {
+        const children = item.children.filter((child) => {
+          if (!child.roles) return true
+          return child.roles.includes(user?.role)
+        })
+        if (children.length === 0) {
+          return null
+        }
+        if (item.roles && !item.roles.includes(user?.role)) {
+          return null
+        }
+        return { ...item, children }
+      }
+      if (!item.roles) return item
+      return item.roles.includes(user?.role) ? item : null
+    })
+    .filter(Boolean)
+
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  const [expandedGroups, setExpandedGroups] = useState({})
 
   const initials = user?.name
     ? user.name
@@ -53,26 +71,74 @@ export default function DashboardLayout() {
           </div>
         </div>
 
-        <nav className="flex flex-col gap-1 px-4 py-6 text-sm">
-          {filteredNavigation.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === '/'}
-              className={({ isActive }) =>
-                [
-                  'flex items-center justify-between rounded-xl px-4 py-3 font-medium transition',
-                  isActive
-                    ? 'bg-emerald-500/10 text-emerald-200 ring-1 ring-inset ring-emerald-500/30'
-                    : 'text-slate-300 hover:bg-slate-800/60 hover:text-slate-100',
-                ].join(' ')
-              }
-              onClick={() => setMobileNavOpen(false)}
-            >
-              <span>{item.label}</span>
-              <span className="text-xs uppercase tracking-widest text-slate-500">{item.to === '/' ? 'overview' : ''}</span>
-            </NavLink>
-          ))}
+        <nav className="flex flex-col gap-2 px-4 py-6 text-sm">
+          {filteredNavigation.map((item) => {
+            if (item.children) {
+              const isExpanded = expandedGroups[item.label] ?? true
+              return (
+                <div key={item.label} className="space-y-1">
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between rounded-xl px-4 py-3 text-left font-semibold text-slate-200 transition hover:bg-slate-800/60"
+                    onClick={() =>
+                      setExpandedGroups((prev) => ({
+                        ...prev,
+                        [item.label]: !isExpanded,
+                      }))
+                    }
+                  >
+                    <span>{item.label}</span>
+                    <span className="text-xs uppercase tracking-widest text-slate-500">
+                      {isExpanded ? '−' : '+'}
+                    </span>
+                  </button>
+                  {isExpanded ? (
+                    <div className="space-y-1 pl-3">
+                      {item.children.map((child) => (
+                        <NavLink
+                          key={child.to}
+                          to={child.to}
+                          className={({ isActive }) =>
+                            [
+                              'flex items-center justify-between rounded-lg px-4 py-2 text-sm transition',
+                              isActive
+                                ? 'bg-emerald-500/10 text-emerald-200 ring-1 ring-inset ring-emerald-500/30'
+                                : 'text-slate-300 hover:bg-slate-800/60 hover:text-slate-100',
+                            ].join(' ')
+                          }
+                          onClick={() => setMobileNavOpen(false)}
+                        >
+                          <span>{child.label}</span>
+                        </NavLink>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              )
+            }
+
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === '/'}
+                className={({ isActive }) =>
+                  [
+                    'flex items-center justify-between rounded-xl px-4 py-3 font-medium transition',
+                    isActive
+                      ? 'bg-emerald-500/10 text-emerald-200 ring-1 ring-inset ring-emerald-500/30'
+                      : 'text-slate-300 hover:bg-slate-800/60 hover:text-slate-100',
+                  ].join(' ')
+                }
+                onClick={() => setMobileNavOpen(false)}
+              >
+                <span>{item.label}</span>
+                <span className="text-xs uppercase tracking-widest text-slate-500">
+                  {item.to === '/' ? 'overview' : ''}
+                </span>
+              </NavLink>
+            )
+          })}
         </nav>
 
         <div className="mt-auto px-6 pb-6">
@@ -99,7 +165,7 @@ export default function DashboardLayout() {
           </button>
 
           <div className="ml-auto flex items-center gap-4 text-sm text-slate-300">
-            <div className="flex items-center gap-1 rounded-full border border-slate-800/70 bg-slate-950/70 p-1 shadow-inner shadow-black/40">
+            <div className="flex items-center gap-3 rounded-full border border-slate-800/60 bg-slate-900/80 px-1 py-1 text-xs uppercase tracking-[0.3em] text-slate-400">
               {MODE_OPTIONS.map((option) => {
                 const isActive = option.value === mode
                 return (
@@ -109,10 +175,8 @@ export default function DashboardLayout() {
                     onClick={() => setMode(option.value)}
                     aria-pressed={isActive}
                     className={[
-                      'rounded-full px-4 py-1.5 text-xs font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70',
-                      isActive
-                        ? 'bg-emerald-400/90 text-slate-900 shadow-lg shadow-emerald-900/30'
-                        : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/50',
+                      'rounded-full px-3 py-1 text-[0.65rem] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70',
+                      isActive ? 'bg-emerald-400 text-slate-900 shadow shadow-emerald-900/30' : 'text-slate-500 hover:text-slate-100',
                     ].join(' ')}
                   >
                     {option.label}
@@ -132,8 +196,8 @@ export default function DashboardLayout() {
           </div>
         </header>
 
-        <main className="flex-1 bg-slate-950/95 px-4 py-6 sm:px-8 lg:px-10">
-          <div className="mx-auto w-full max-w-6xl space-y-8">
+        <main className="flex-1 bg-slate-950/95 px-4 py-6 sm:px-8 lg:px-10 overflow-x-hidden">
+          <div className="mx-auto w-full max-w-5xl space-y-8 overflow-x-hidden">
             <Outlet />
           </div>
         </main>

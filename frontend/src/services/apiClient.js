@@ -1,13 +1,7 @@
-const DEFAULT_REMOTE_API = 'https://backend-rz5x.onrender.com'
-
-const explicitBase = import.meta.env.VITE_API_URL?.trim()
-
-export const API_BASE_URL =
-  explicitBase && explicitBase.length > 0
-    ? explicitBase.replace(/\/$/, '')
-    : import.meta.env.DEV
-      ? ''
-      : DEFAULT_REMOTE_API
+const DEFAULT_PROD_API = 'https://backend-rz5x.onrender.com'
+const DEFAULT_DEV_API = 'http://localhost:5001'
+export const API_BASE_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? DEFAULT_DEV_API : DEFAULT_PROD_API)
+const REQUEST_TIMEOUT_MS = 15000
 
 export class ApiError extends Error {
   constructor(message, status, details) {
@@ -36,26 +30,39 @@ async function request(path, { method = 'GET', body, token, headers: customHeade
     headers.Authorization = `Bearer ${token}`
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  })
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
-  const payload = await parseJsonSafely(response)
+  try {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    })
 
-  if (!response.ok) {
-    const message =
-      payload?.message ??
-      payload?.error ??
-      (response.status >= 500
-        ? 'The server is currently unavailable. Please try again later.'
-        : 'We could not complete your request.')
+    const payload = await parseJsonSafely(response)
 
-    throw new ApiError(message, response.status, payload)
+    if (!response.ok) {
+      const message =
+        payload?.message ??
+        payload?.error ??
+        (response.status >= 500
+          ? 'The server is currently unavailable. Please try again later.'
+          : 'We could not complete your request.')
+
+      throw new ApiError(message, response.status, payload)
+    }
+
+    return payload
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      throw new ApiError('The server is taking too long to respond. Please try again.', 408)
+    }
+    throw error
+  } finally {
+    clearTimeout(timeoutId)
   }
-
-  return payload
 }
 
 export const apiClient = {
@@ -95,7 +102,7 @@ export const apiClient = {
     const response = await fetch(`${API_BASE_URL}${url}`, {
       method: 'GET',
       headers: {
-        Authorization: `Bearer ${token}`,
+        'Authorization': `Bearer ${token}`,
       },
     })
 
@@ -105,6 +112,7 @@ export const apiClient = {
       throw new ApiError(message, response.status, payload)
     }
 
+    // Get the blob and create download link
     const blob = await response.blob()
     const downloadUrl = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
@@ -127,7 +135,7 @@ export const apiClient = {
     const response = await fetch(`${API_BASE_URL}${url}`, {
       method: 'GET',
       headers: {
-        Authorization: `Bearer ${token}`,
+        'Authorization': `Bearer ${token}`,
       },
     })
 
@@ -137,6 +145,7 @@ export const apiClient = {
       throw new ApiError(message, response.status, payload)
     }
 
+    // Get the blob and create download link
     const blob = await response.blob()
     const downloadUrl = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
@@ -167,7 +176,7 @@ export const apiClient = {
     const response = await fetch(`${API_BASE_URL}${url}`, {
       method: 'GET',
       headers: {
-        Authorization: `Bearer ${token}`,
+        'Authorization': `Bearer ${token}`,
       },
     })
 
@@ -177,6 +186,7 @@ export const apiClient = {
       throw new ApiError(message, response.status, payload)
     }
 
+    // Get the blob and create download link
     const blob = await response.blob()
     const downloadUrl = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
@@ -193,109 +203,6 @@ export const apiClient = {
 
     return { success: true, filename }
   },
-
-  // Monthly Salary endpoints
-  createOrUpdateMonthlySalary: (token, employeeId, { month, year, salary, cycle }) =>
-    request(`/api/monthly-salaries/employee/${employeeId}`, {
-      method: 'PUT',
-      body: { month, year, salary, cycle },
-      token,
-    }),
-
-  getEmployeeMonthlySalaries: (token, employeeId, { year } = {}) => {
-    const query = year ? `?year=${year}` : ''
-    return request(`/api/monthly-salaries/employee/${employeeId}${query}`, { token })
-  },
-
-  getDepartmentMonthlySalaries: (token, departmentId, { month, year, cycle } = {}) => {
-    const params = new URLSearchParams()
-    if (month) params.append('month', month)
-    if (year) params.append('year', year)
-    if (cycle) params.append('cycle', cycle)
-    const query = params.toString() ? `?${params.toString()}` : ''
-    return request(`/api/monthly-salaries/department/${departmentId}${query}`, { token })
-  },
-
-  bulkCreateMonthlySalaries: (token, salaries) =>
-    request('/api/monthly-salaries/bulk', {
-      method: 'POST',
-      body: { salaries },
-      token,
-    }),
-
-  getMonthlySalaries: (token, { month, year, departmentId } = {}) => {
-    const params = new URLSearchParams()
-    if (month) params.append('month', month)
-    if (year) params.append('year', year)
-    if (departmentId) params.append('departmentId', departmentId)
-    const query = params.toString() ? `?${params.toString()}` : ''
-    return request(`/api/monthly-salaries${query}`, { token })
-  },
-
-  getExistingEmployeePayroll: (token, { department } = {}) => {
-    const params = new URLSearchParams()
-    if (department) {
-      params.append('department', department)
-    }
-    const query = params.toString() ? `?${params.toString()}` : ''
-    return request(`/api/payroll/existing-employees${query}`, { token })
-  },
-
-  createExistingEmployeePayroll: (token, payload) =>
-    request('/api/payroll/existing-employees', {
-      method: 'POST',
-      body: payload,
-      token,
-    }),
-
-  updateExistingEmployeePayroll: (token, id, payload) =>
-    request(`/api/payroll/existing-employees/${id}`, {
-      method: 'PUT',
-      body: payload,
-      token,
-    }),
-
-  deleteExistingEmployeePayroll: (token, id) =>
-    request(`/api/payroll/existing-employees/${id}`, {
-      method: 'DELETE',
-      token,
-    }),
-
-  exportExistingEmployeePayrollSheet: async (token, { department } = {}) => {
-    const params = new URLSearchParams()
-    if (department) {
-      params.append('department', department)
-    }
-    const query = params.toString() ? `?${params.toString()}` : ''
-    const url = `/api/payroll/existing-employees/export/sheet${query}`
-
-    const response = await fetch(`${API_BASE_URL}${url}`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })
-
-    if (!response.ok) {
-      const payload = await parseJsonSafely(response)
-      const message = payload?.message ?? 'Failed to export sheet.'
-      throw new ApiError(message, response.status, payload)
-    }
-
-    const blob = await response.blob()
-    const downloadUrl = window.URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = downloadUrl
-    const filename =
-      response.headers.get('Content-Disposition')?.split('filename=')[1]?.replace(/"/g, '') ||
-      'existing_employee_payroll.xlsx'
-    link.setAttribute('download', filename)
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    window.URL.revokeObjectURL(downloadUrl)
-
-    return { success: true, filename }
-  },
 }
 
+export { request }

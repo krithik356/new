@@ -1,17 +1,15 @@
 const mongoose = require("mongoose");
 const ExcelJS = require("exceljs");
-const { ExistingEmployeePayroll } = require("../models/ExistingEmployeePayroll");
+const { NewJoineePayroll } = require("../models/NewJoineePayroll");
 const { Department } = require("../models/Department");
-const {
-  buildExistingEmployeeWorkbook,
-} = require("../utils/existingEmployeeSheetExporter");
+const { buildNewJoineeWorkbook } = require("../utils/newJoineeSheetExporter");
 
 const editableFields = [
-  "empId",
-  "empName",
+  "sbuClp",
+  "employeeName",
   "doj",
   "doe",
-  "month",
+  "norm",
   "designation",
   "departmentLabel",
   "topDepartment",
@@ -21,49 +19,84 @@ const editableFields = [
   "sourceHod",
   "beneficiaryHod",
   "workMode",
-  "employeeType",
+  "workLocation",
+  "employmentType",
+  "experienceRange",
+  "newType",
+  "replacementEmployeeName",
+  "productOrDomain",
+  "clh",
+  "assetRequirement",
+  "processor",
+  "operatingSystem",
+  "storage",
+  "ram",
+  "displaySize",
+  "graphicCard",
+  "peripherals",
+  "headPhone",
+  "mobilePhone",
+  "scienceSbu",
+  "budgetAmount",
   "academy",
   "intensive",
-  "niatBatch12",
+  "niatBatch1",
+  "niatBatch2",
   "niatBatch3",
-  "niatBatch4",
   "others",
-  "common",
+  "comments",
 ];
 
 const columnDefinitions = [
-  { header: "EMP ID", key: "empId" },
-  { header: "EMP Name", key: "empName" },
+  { header: "EMP Name", key: "employeeName" },
   { header: "DOJ", key: "doj", isDate: true },
   { header: "DOE", key: "doe", isDate: true },
-  { header: "Month", key: "month" },
+  { header: "Norm", key: "norm" },
   { header: "Designation", key: "designation" },
   { header: "Department", key: "departmentLabel" },
   { header: "Top Department", key: "topDepartment" },
   { header: "Type", key: "type" },
   { header: "Source Department", key: "sourceDepartment" },
-  { header: "Benficiary Department", key: "beneficiaryDepartment" },
+  { header: "Beneficiary Department", key: "beneficiaryDepartment" },
   { header: "Source HOD", key: "sourceHod" },
-  { header: "Benficiary HOD", key: "beneficiaryHod" },
+  { header: "Beneficiary HOD", key: "beneficiaryHod" },
   { header: "WFO/WFH", key: "workMode" },
-  { header: "Employee Type", key: "employeeType" },
+  { header: "Work Location", key: "workLocation" },
+  { header: "Employment Type", key: "employmentType" },
+  { header: "Experience Range", key: "experienceRange" },
+  { header: "New Type", key: "newType" },
+  { header: "Replacement Employee Name", key: "replacementEmployeeName" },
+  { header: "Product / Working Domain", key: "productOrDomain" },
+  { header: "C/L/H", key: "clh" },
+  { header: "Asset we have to provide", key: "assetRequirement" },
+  { header: "Processor", key: "processor" },
+  { header: "Operating System", key: "operatingSystem" },
+  { header: "Storage (SSD)", key: "storage" },
+  { header: "RAM", key: "ram" },
+  { header: "Display Size", key: "displaySize" },
+  { header: "Graphic Card", key: "graphicCard" },
+  { header: "Peripherals", key: "peripherals" },
+  { header: "Head Phone", key: "headPhone" },
+  { header: "Mobile Phone", key: "mobilePhone" },
+  { header: "Science (SBU)", key: "scienceSbu" },
+  { header: "Budget Amount", key: "budgetAmount" },
   { header: "Academy", key: "academy" },
   { header: "Intensive", key: "intensive" },
-  { header: "NIAT Batch 1&2", key: "niatBatch12" },
+  { header: "NIAT Batch 1", key: "niatBatch1" },
+  { header: "NIAT Batch 2", key: "niatBatch2" },
   { header: "NIAT Batch 3", key: "niatBatch3" },
-  { header: "NIAT Batch 4", key: "niatBatch4" },
   { header: "Others", key: "others" },
-  { header: "Common", key: "common" },
+  { header: "Comments", key: "comments" },
 ];
 
 const percentageFields = [
   "academy",
   "intensive",
-  "niatBatch12",
+  "niatBatch1",
+  "niatBatch2",
   "niatBatch3",
-  "niatBatch4",
   "others",
-  "common",
+  "comments",
 ];
 
 function normalizeDepartmentKey(value) {
@@ -115,7 +148,7 @@ async function resolveDepartmentContext({ role, userDepartment, payload }) {
   }
 
   if (role !== "Admin") {
-    throw new Error("Unsupported role.");
+    throw new Error("Unsupported role");
   }
 
   if (payload.departmentId) {
@@ -176,16 +209,16 @@ function toNumber(value) {
   return Number.isNaN(parsed) ? null : parsed;
 }
 
-function validatePercentageAllocation(payload) {
-  const values = percentageFields
+function ensurePercentageAllocation(payload) {
+  const numbers = percentageFields
     .map((field) => toNumber(payload[field]))
     .filter((value) => value !== null);
 
-  if (values.length === 0) {
+  if (numbers.length === 0) {
     return;
   }
 
-  const total = values.reduce((sum, value) => sum + value, 0);
+  const total = numbers.reduce((sum, value) => sum + value, 0);
 
   if (Math.round(total * 100) / 100 !== 100) {
     throw new Error("Allocation percentages must equal 100%.");
@@ -234,6 +267,7 @@ function mapRowToPayload(row) {
 
   columnDefinitions.forEach((column, index) => {
     const cell = row.getCell(index + 1).value;
+
     if (column.isDate) {
       if (!cell) {
         payload[column.key] = null;
@@ -258,7 +292,7 @@ function mapRowToPayload(row) {
   return payload;
 }
 
-async function listExistingEmployees(req, res) {
+async function listNewJoinees(req, res) {
   try {
     const { role, department: userDepartment } = req.user;
     const { department: queryDepartment } = req.query;
@@ -278,7 +312,7 @@ async function listExistingEmployees(req, res) {
       filter.departmentKey = normalizeDepartmentKey(queryDepartment);
     }
 
-    const records = await ExistingEmployeePayroll.find(filter)
+    const records = await NewJoineePayroll.find(filter)
       .sort({ updatedAt: -1 })
       .lean();
 
@@ -289,13 +323,12 @@ async function listExistingEmployees(req, res) {
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message:
-        error.message || "Failed to fetch existing employee payroll entries.",
+      message: error.message || "Failed to fetch new joinee payroll entries.",
     });
   }
 }
 
-async function exportExistingEmployees(req, res) {
+async function exportNewJoineeSheet(req, res) {
   try {
     const { role, department: userDepartment } = req.user;
     const { department: queryDepartment } = req.query;
@@ -314,12 +347,12 @@ async function exportExistingEmployees(req, res) {
       filter.departmentKey = normalizeDepartmentKey(queryDepartment);
     }
 
-    const records = await ExistingEmployeePayroll.find(filter)
+    const records = await NewJoineePayroll.find(filter)
       .sort({ updatedAt: -1 })
       .lean();
 
-    const workbook = await buildExistingEmployeeWorkbook(records);
-    const fileName = `existing_employees_${new Date()
+    const workbook = await buildNewJoineeWorkbook(records);
+    const fileName = `new_joinee_sheet_${new Date()
       .toISOString()
       .slice(0, 10)}.xlsx`;
 
@@ -334,12 +367,12 @@ async function exportExistingEmployees(req, res) {
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: error.message || "Unable to export existing employee sheet.",
+      message: error.message || "Unable to export new joinee sheet.",
     });
   }
 }
 
-async function createExistingEmployee(req, res) {
+async function createNewJoinee(req, res) {
   try {
     const { role, id: userId, department: userDepartment } = req.user;
 
@@ -363,9 +396,9 @@ async function createExistingEmployee(req, res) {
       updatedBy: userId,
     });
 
-    validatePercentageAllocation(payload);
+    ensurePercentageAllocation(payload);
 
-    const record = await ExistingEmployeePayroll.create(payload);
+    const record = await NewJoineePayroll.create(payload);
 
     return res.status(201).json({
       success: true,
@@ -374,12 +407,12 @@ async function createExistingEmployee(req, res) {
   } catch (error) {
     return res.status(400).json({
       success: false,
-      message: error.message || "Unable to create existing employee entry.",
+      message: error.message || "Unable to create new joinee entry.",
     });
   }
 }
 
-async function updateExistingEmployee(req, res) {
+async function updateNewJoinee(req, res) {
   try {
     const { role, id: userId, department: userDepartment } = req.user;
     const { id } = req.params;
@@ -391,7 +424,7 @@ async function updateExistingEmployee(req, res) {
       });
     }
 
-    const record = await ExistingEmployeePayroll.findById(id);
+    const record = await NewJoineePayroll.findById(id);
 
     if (!record) {
       return res.status(404).json({
@@ -437,7 +470,7 @@ async function updateExistingEmployee(req, res) {
       updatedBy: userId,
     });
 
-    validatePercentageAllocation({ ...record.toObject(), ...updates });
+    ensurePercentageAllocation({ ...record.toObject(), ...updates });
 
     if (departmentMeta) {
       updates.department = departmentMeta.departmentId;
@@ -460,7 +493,7 @@ async function updateExistingEmployee(req, res) {
   }
 }
 
-async function deleteExistingEmployee(req, res) {
+async function deleteNewJoinee(req, res) {
   try {
     const { id } = req.params;
 
@@ -471,7 +504,7 @@ async function deleteExistingEmployee(req, res) {
       });
     }
 
-    const record = await ExistingEmployeePayroll.findById(id);
+    const record = await NewJoineePayroll.findById(id);
 
     if (!record) {
       return res.status(404).json({
@@ -494,7 +527,7 @@ async function deleteExistingEmployee(req, res) {
   }
 }
 
-async function uploadExistingEmployeesSheet(req, res) {
+async function uploadNewJoineeSheet(req, res) {
   try {
     if (!req.file) {
       return res.status(400).json({
@@ -507,6 +540,7 @@ async function uploadExistingEmployeesSheet(req, res) {
     await workbook.xlsx.load(req.file.buffer);
 
     const worksheet = workbook.worksheets[0];
+
     if (!worksheet) {
       return res.status(400).json({
         success: false,
@@ -526,7 +560,7 @@ async function uploadExistingEmployeesSheet(req, res) {
 
       const mappedPayload = mapRowToPayload(row);
 
-      validatePercentageAllocation(mappedPayload);
+      ensurePercentageAllocation(mappedPayload);
 
       const departmentMeta = await resolveDepartmentContext({
         role,
@@ -545,24 +579,32 @@ async function uploadExistingEmployeesSheet(req, res) {
         updatedBy: userId,
       });
 
-      if (!payload.empName?.trim()) {
+      if (!payload.employeeName?.trim()) {
         throw new Error(
           `Row ${rowIndex}: Employee name is required before import.`
         );
       }
 
-      const identifier = payload.empId?.trim();
+      const identifier = payload.employeeName.trim();
       let record = null;
 
       if (identifier) {
-        record = await ExistingEmployeePayroll.findOne({ empId: identifier });
+        const query = {
+          employeeName: new RegExp(`^${identifier}$`, "i"),
+        };
+
+        if (payload.departmentKey) {
+          query.departmentKey = payload.departmentKey;
+        }
+
+        record = await NewJoineePayroll.findOne(query);
       }
 
       if (record) {
         Object.assign(record, payload);
         await record.save();
       } else {
-        await ExistingEmployeePayroll.create({
+        await NewJoineePayroll.create({
           ...payload,
           createdBy: userId,
         });
@@ -576,19 +618,17 @@ async function uploadExistingEmployeesSheet(req, res) {
   } catch (error) {
     return res.status(400).json({
       success: false,
-      message:
-        error.message || "Unable to process the uploaded existing employee sheet.",
+      message: error.message || "Unable to process the uploaded sheet.",
     });
   }
 }
 
 module.exports = {
-  listExistingEmployees,
-  exportExistingEmployees,
-  createExistingEmployee,
-  updateExistingEmployee,
-  deleteExistingEmployee,
-  uploadExistingEmployeesSheet,
+  listNewJoinees,
+  exportNewJoineeSheet,
+  uploadNewJoineeSheet,
+  createNewJoinee,
+  updateNewJoinee,
+  deleteNewJoinee,
 };
-
 

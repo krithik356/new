@@ -8,7 +8,7 @@ const stringField = {
   default: "",
 };
 
-const ExistingEmployeePayrollSchema = new Schema(
+const NewJoineePayrollSchema = new Schema(
   {
     department: {
       type: Schema.Types.ObjectId,
@@ -20,14 +20,14 @@ const ExistingEmployeePayrollSchema = new Schema(
       lowercase: true,
     },
     departmentLabel: stringField,
-    empId: stringField,
-    empName: {
+    sbuClp: stringField,
+    employeeName: {
       ...stringField,
       required: true,
     },
     doj: Date,
     doe: Date,
-    month: stringField,
+    norm: stringField,
     designation: stringField,
     topDepartment: stringField,
     type: stringField,
@@ -36,14 +36,32 @@ const ExistingEmployeePayrollSchema = new Schema(
     sourceHod: stringField,
     beneficiaryHod: stringField,
     workMode: stringField,
-    employeeType: stringField,
+    workLocation: stringField,
+    employmentType: stringField,
+    experienceRange: stringField,
+    newType: stringField,
+    replacementEmployeeName: stringField,
+    productOrDomain: stringField,
+    clh: stringField,
+    assetRequirement: stringField,
+    processor: stringField,
+    operatingSystem: stringField,
+    storage: stringField,
+    ram: stringField,
+    displaySize: stringField,
+    graphicCard: stringField,
+    peripherals: stringField,
+    headPhone: stringField,
+    mobilePhone: stringField,
+    scienceSbu: stringField,
+    budgetAmount: stringField,
     academy: stringField,
     intensive: stringField,
-    niatBatch12: stringField,
+    niatBatch1: stringField,
+    niatBatch2: stringField,
     niatBatch3: stringField,
-    niatBatch4: stringField,
     others: stringField,
-    common: stringField,
+    comments: stringField,
     createdBy: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -60,16 +78,15 @@ const ExistingEmployeePayrollSchema = new Schema(
   }
 );
 
-ExistingEmployeePayrollSchema.index(
-  { department: 1, empName: 1, doj: 1 },
-  { name: "existing_employee_index" }
+NewJoineePayrollSchema.index(
+  { department: 1, employeeName: 1, doj: 1 },
+  { name: "dept_employee_join_index" }
 );
 
-const ExistingEmployeePayroll = mongoose.model(
-  "ExistingEmployeePayroll",
-  ExistingEmployeePayrollSchema
+const NewJoineePayroll = mongoose.model(
+  "NewJoineePayroll",
+  NewJoineePayrollSchema
 );
 
-module.exports = { ExistingEmployeePayroll };
-
+module.exports = { NewJoineePayroll };
 
