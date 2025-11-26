@@ -38,6 +38,8 @@ const NewJoineePayrollSchema = new Schema(
     workMode: stringField,
     workLocation: stringField,
     employmentType: stringField,
+    remarks: stringField,
+    ctcRange: stringField,
     experienceRange: stringField,
     newType: stringField,
     replacementEmployeeName: stringField,

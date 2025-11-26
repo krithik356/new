@@ -3,6 +3,10 @@ const ExcelJS = require("exceljs");
 const { NewJoineePayroll } = require("../models/NewJoineePayroll");
 const { Department } = require("../models/Department");
 const { buildNewJoineeWorkbook } = require("../utils/newJoineeSheetExporter");
+const {
+  syncTARequirementsForRoles,
+  syncAllTARequirements,
+} = require("../utils/taRequirementAggregator");
 
 const editableFields = [
   "sbuClp",
@@ -21,11 +25,12 @@ const editableFields = [
   "workMode",
   "workLocation",
   "employmentType",
+  "remarks",
+  "ctcRange",
   "experienceRange",
   "newType",
   "replacementEmployeeName",
   "productOrDomain",
-  "clh",
   "assetRequirement",
   "processor",
   "operatingSystem",
@@ -63,11 +68,12 @@ const columnDefinitions = [
   { header: "WFO/WFH", key: "workMode" },
   { header: "Work Location", key: "workLocation" },
   { header: "Employment Type", key: "employmentType" },
+  { header: "Remarks", key: "remarks" },
+  { header: "CTC Range", key: "ctcRange" },
   { header: "Experience Range", key: "experienceRange" },
   { header: "New Type", key: "newType" },
   { header: "Replacement Employee Name", key: "replacementEmployeeName" },
   { header: "Product / Working Domain", key: "productOrDomain" },
-  { header: "C/L/H", key: "clh" },
   { header: "Asset we have to provide", key: "assetRequirement" },
   { header: "Processor", key: "processor" },
   { header: "Operating System", key: "operatingSystem" },
@@ -400,6 +406,8 @@ async function createNewJoinee(req, res) {
 
     const record = await NewJoineePayroll.create(payload);
 
+    await syncTARequirementsForRoles([record.designation]);
+
     return res.status(201).json({
       success: true,
       data: record,
@@ -465,6 +473,8 @@ async function updateNewJoinee(req, res) {
       });
     }
 
+    const previousDesignation = record.designation;
+
     const updates = normalizeDates({
       ...pickEditableFields(req.body),
       updatedBy: userId,
@@ -481,6 +491,11 @@ async function updateNewJoinee(req, res) {
     Object.assign(record, updates);
     await record.save();
 
+    await syncTARequirementsForRoles([
+      previousDesignation,
+      record.designation,
+    ]);
+
     return res.status(200).json({
       success: true,
       data: record,
@@ -496,6 +511,7 @@ async function updateNewJoinee(req, res) {
 async function deleteNewJoinee(req, res) {
   try {
     const { id } = req.params;
+    const { role, department: userDepartment } = req.user;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
@@ -513,7 +529,21 @@ async function deleteNewJoinee(req, res) {
       });
     }
 
+    if (
+      role === "HOD" &&
+      record.department &&
+      userDepartment &&
+      record.department.toString() !== userDepartment.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only delete entries from your department.",
+      });
+    }
+
     await record.deleteOne();
+
+    await syncTARequirementsForRoles([record.designation]);
 
     return res.status(200).json({
       success: true,
@@ -537,7 +567,21 @@ async function uploadNewJoineeSheet(req, res) {
     }
 
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(req.file.buffer);
+    try {
+      await workbook.xlsx.load(req.file.buffer);
+    } catch (loadError) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Excel file format. Please ensure the file is a valid .xlsx file.",
+      });
+    }
+
+    if (!workbook.worksheets || workbook.worksheets.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Uploaded workbook has no worksheets. Please ensure the Excel file contains at least one sheet.",
+      });
+    }
 
     const worksheet = workbook.worksheets[0];
 
@@ -545,6 +589,13 @@ async function uploadNewJoineeSheet(req, res) {
       return res.status(400).json({
         success: false,
         message: "Uploaded workbook is empty.",
+      });
+    }
+
+    if (worksheet.rowCount < 2) {
+      return res.status(400).json({
+        success: false,
+        message: "Uploaded sheet has no data rows. Please ensure the sheet contains at least one data row after the header.",
       });
     }
 
@@ -610,6 +661,8 @@ async function uploadNewJoineeSheet(req, res) {
         });
       }
     }
+
+    await syncAllTARequirements();
 
     return res.status(200).json({
       success: true,

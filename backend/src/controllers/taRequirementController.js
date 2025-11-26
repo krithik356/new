@@ -1,0 +1,330 @@
+const mongoose = require("mongoose");
+const { TARequirement } = require("../models/TARequirement");
+const {
+  normalizeDepartmentKey,
+  normalizeRoleName,
+  syncTARequirementsForRoles,
+  syncAllTARequirements,
+} = require("../utils/taRequirementAggregator");
+
+const { Types } = mongoose;
+
+const numericFields = [
+  "noOfPositions",
+  "januaryPositions",
+  "februaryPositions",
+  "marchPositions",
+];
+
+const editableFields = [
+  "hodName",
+  "hiringManagerName",
+  "roleName",
+  "ctcRange",
+  "workLocation",
+  "employmentType",
+  "employmentTypeRemarks",
+  "topDepartment",
+  "department",
+  "beneficiaryDepartment",
+  "experienceRange",
+  "hireType",
+  "replacementEmployeeName",
+  "productWorkingOn",
+  "jdLink",
+  "assetToProvide",
+  "processor",
+  "operatingSystem",
+  "storage",
+  "ram",
+  "displaySize",
+  "graphicCard",
+  "peripherals",
+  "ipad",
+  "headphones",
+  "mobilePhones",
+  "externalSsds",
+  "budgetAmount",
+  "sourceDepartment",
+];
+
+const arrayFields = [
+  "departmentLabels",
+  "departmentKeys",
+  "sourceDepartmentKeys",
+  "beneficiaryDepartmentKeys",
+];
+
+const toStringValue = (value) =>
+  value === null || value === undefined ? "" : value.toString().trim();
+
+const toStringArray = (value = []) =>
+  Array.isArray(value)
+    ? value
+        .map((entry) => toStringValue(entry))
+        .filter((entry) => entry.length > 0)
+    : [];
+
+const toNormalizedKeyArray = (value = []) =>
+  toStringArray(value).map((entry) => normalizeDepartmentKey(entry));
+
+const toObjectIdArray = (value = []) =>
+  Array.isArray(value)
+    ? value
+        .map((entry) => {
+          if (entry instanceof Types.ObjectId) {
+            return entry;
+          }
+          if (Types.ObjectId.isValid(entry)) {
+            return new Types.ObjectId(entry);
+          }
+          return null;
+        })
+        .filter(Boolean)
+    : [];
+
+const buildPayload = ({ body, userId, isCreate }) => {
+  const payload = {};
+
+  editableFields.forEach((field) => {
+    if (body[field] !== undefined) {
+      payload[field] = toStringValue(body[field]);
+    }
+  });
+
+  numericFields.forEach((field) => {
+    if (body[field] !== undefined) {
+      const parsed = Number(body[field]);
+      payload[field] = Number.isNaN(parsed) ? 0 : parsed;
+    }
+  });
+
+  arrayFields.forEach((field) => {
+    if (body[field] !== undefined) {
+      payload[field] = toStringArray(body[field]);
+    }
+  });
+
+  if (body.departmentKeys !== undefined) {
+    payload.departmentKeys = toNormalizedKeyArray(body.departmentKeys);
+  }
+
+  if (body.sourceDepartmentKeys !== undefined) {
+    payload.sourceDepartmentKeys = toNormalizedKeyArray(
+      body.sourceDepartmentKeys
+    );
+  }
+
+  if (body.beneficiaryDepartmentKeys !== undefined) {
+    payload.beneficiaryDepartmentKeys = toNormalizedKeyArray(
+      body.beneficiaryDepartmentKeys
+    );
+  }
+
+  if (body.departmentIds !== undefined) {
+    payload.departmentIds = toObjectIdArray(body.departmentIds);
+  }
+
+  if (payload.roleName) {
+    payload.roleNameNormalized = normalizeRoleName(payload.roleName);
+  }
+
+  if (userId) {
+    payload.updatedBy = userId;
+    if (isCreate) {
+      payload.createdBy = userId;
+    }
+  }
+
+  return payload;
+};
+
+async function listTARequirements(req, res) {
+  try {
+    const { role, department: userDepartment } = req.user;
+    const { department: queryDepartment } = req.query;
+
+    const filter = {};
+
+    if (role === "HOD") {
+      if (!userDepartment) {
+        return res.status(400).json({
+          success: false,
+          message: "Department mapping missing for current HOD.",
+        });
+      }
+      filter.departmentIds = userDepartment;
+    } else if (queryDepartment && queryDepartment !== "all") {
+      const normalizedDepartment = normalizeDepartmentKey(queryDepartment);
+      if (normalizedDepartment) {
+        filter.departmentKeys = normalizedDepartment;
+      }
+    }
+
+    let data = await TARequirement.find(filter).sort({ roleName: 1 }).lean();
+
+    if (data.length === 0) {
+      const rebuilt = await syncAllTARequirements();
+      if (rebuilt.length > 0) {
+        data = await TARequirement.find(filter).sort({ roleName: 1 }).lean();
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to fetch TA requirements.",
+    });
+  }
+}
+
+async function createTARequirement(req, res) {
+  try {
+    const { id: userId } = req.user;
+
+    const payload = buildPayload({
+      body: req.body,
+      userId,
+      isCreate: true,
+    });
+
+    if (!payload.roleName) {
+      return res.status(400).json({
+        success: false,
+        message: "Role name is required.",
+      });
+    }
+
+    if (!payload.roleNameNormalized) {
+      payload.roleNameNormalized = normalizeRoleName(payload.roleName);
+    }
+
+    const record = await TARequirement.create(payload);
+
+    return res.status(201).json({
+      success: true,
+      data: record,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message || "Unable to create TA requirement entry.",
+    });
+  }
+}
+
+async function updateTARequirement(req, res) {
+  try {
+    const { id } = req.params;
+    const { id: userId } = req.user;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid TA requirement identifier.",
+      });
+    }
+
+    const record = await TARequirement.findById(id);
+
+    if (!record) {
+      return res.status(404).json({
+        success: false,
+        message: "TA requirement entry not found.",
+      });
+    }
+
+    const payload = buildPayload({
+      body: req.body,
+      userId,
+      isCreate: false,
+    });
+
+    Object.assign(record, payload);
+    await record.save();
+
+    return res.status(200).json({
+      success: true,
+      data: record,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message || "Unable to update TA requirement entry.",
+    });
+  }
+}
+
+async function deleteTARequirement(req, res) {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid TA requirement identifier.",
+      });
+    }
+
+    const record = await TARequirement.findById(id);
+
+    if (!record) {
+      return res.status(404).json({
+        success: false,
+        message: "TA requirement entry not found.",
+      });
+    }
+
+    await record.deleteOne();
+
+    return res.status(200).json({
+      success: true,
+      message: "TA requirement entry removed.",
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message || "Unable to delete TA requirement entry.",
+    });
+  }
+}
+
+async function syncTARequirements(req, res) {
+  try {
+    const { roles } = req.body || {};
+    const roleList = Array.isArray(roles)
+      ? roles
+          .map((role) => toStringValue(role))
+          .filter((role) => role.length > 0)
+      : [];
+
+    const data =
+      roleList.length > 0
+        ? await syncTARequirementsForRoles(roleList)
+        : await syncAllTARequirements();
+
+    return res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Unable to sync TA requirements.",
+    });
+  }
+}
+
+module.exports = {
+  listTARequirements,
+  createTARequirement,
+  updateTARequirement,
+  deleteTARequirement,
+  syncTARequirements,
+};
+
+

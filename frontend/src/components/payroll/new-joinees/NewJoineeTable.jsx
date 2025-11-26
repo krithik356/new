@@ -46,7 +46,7 @@ export default function NewJoineeTable({
   onDeleteRow,
   rowErrors = {},
 }) {
-  const isAdmin = role === 'Admin'
+  const canDelete = role === 'Admin' || role === 'HOD'
 
   return (
     <div className="overflow-hidden rounded-3xl border border-slate-800/70 bg-slate-950/80 shadow-2xl shadow-black/30">
@@ -126,7 +126,7 @@ export default function NewJoineeTable({
                         >
                           {row._id.startsWith('temp-') ? 'Save' : 'Update'}
                         </button>
-                        {isAdmin && row._id && !row._id.startsWith('temp-') ? (
+                        {canDelete && row._id && !row._id.startsWith('temp-') ? (
                           <button
                             type="button"
                             onClick={() => onDeleteRow(row)}

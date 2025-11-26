@@ -4,8 +4,10 @@ import { ApiError } from '../../services/apiClient.js'
 import { useAuth } from '../../providers/AuthProvider.jsx'
 import { useViewMode } from '../../providers/ViewModeProvider.jsx'
 import { NewJoineePayrollAPI } from '../../api/newJoineePayroll.js'
+import { TARequirementAPI } from '../../api/taRequirements.js'
 import NewJoineeToolbar from '../../components/payroll/new-joinees/NewJoineeToolbar.jsx'
 import NewJoineeTable from '../../components/payroll/new-joinees/NewJoineeTable.jsx'
+import TARequirementsTable from '../../components/payroll/ta-requirements/TARequirementsTable.jsx'
 
 const COLUMN_DEFINITIONS = [
   { key: 'employeeName', label: 'EMP Name', width: '200px' },
@@ -23,11 +25,12 @@ const COLUMN_DEFINITIONS = [
   { key: 'workMode', label: 'WFO/WFH', width: '140px' },
   { key: 'workLocation', label: 'Work Location', width: '180px' },
   { key: 'employmentType', label: 'Employment Type', width: '180px' },
+  { key: 'remarks', label: 'Employment Type Remarks', width: '200px' },
+  { key: 'ctcRange', label: 'CTC Range', width: '160px' },
   { key: 'experienceRange', label: 'Experience Range', width: '160px' },
   { key: 'newType', label: 'New Type', width: '150px' },
   { key: 'replacementEmployeeName', label: 'Replacement Employee Name', width: '220px' },
   { key: 'productOrDomain', label: 'Product / Working Domain', width: '220px' },
-  { key: 'clh', label: 'C/L/H', width: '140px' },
   { key: 'assetRequirement', label: 'Asset we have to provide', width: '220px' },
   { key: 'processor', label: 'Processor', width: '150px' },
   { key: 'operatingSystem', label: 'Operating System', width: '170px' },
@@ -47,6 +50,61 @@ const COLUMN_DEFINITIONS = [
   { key: 'niatBatch3', label: 'NIAT Batch 3', width: '150px' },
   { key: 'others', label: 'Others', width: '150px' },
   { key: 'comments', label: 'Comments', width: '220px' },
+]
+
+const TA_COLUMN_DEFINITIONS = [
+  { key: 'hodName', label: 'HOD Name', width: '200px' },
+  { key: 'hiringManagerName', label: 'Hiring Manager Name', width: '220px' },
+  { key: 'roleName', label: 'Role Name', width: '200px' },
+  { key: 'noOfPositions', label: 'No of Positions', width: '180px' },
+  { key: 'januaryPositions', label: 'Jan Positions', width: '160px' },
+  { key: 'februaryPositions', label: 'Feb Positions', width: '160px' },
+  { key: 'marchPositions', label: 'March Positions', width: '160px' },
+  {
+    key: 'ctcRange',
+    label: 'CTC Range in Lakhs (Including Variable, Retention, Bonus etc)',
+    width: '360px',
+  },
+  { key: 'workLocation', label: 'Work Location', width: '200px' },
+  { key: 'employmentType', label: 'Employment Type', width: '200px' },
+  {
+    key: 'employmentTypeRemarks',
+    label: 'Employment Type Remarks',
+    width: '240px',
+  },
+  { key: 'topDepartment', label: 'Top Department', width: '200px' },
+  { key: 'department', label: 'Dept', width: '200px' },
+  {
+    key: 'beneficiaryDepartment',
+    label: 'Beneficiary Department / POD Dept',
+    width: '260px',
+  },
+  { key: 'experienceRange', label: 'Experience Range', width: '200px' },
+  { key: 'hireType', label: 'Hire Type', width: '160px' },
+  {
+    key: 'replacementEmployeeName',
+    label: 'Replacement Employee Name (Only for replacement hires)',
+    width: '320px',
+  },
+  { key: 'productWorkingOn', label: 'Product Working On', width: '240px' },
+  { key: 'jdLink', label: 'JD Link', width: '220px' },
+  { key: 'assetToProvide', label: 'Asset to Provide', width: '220px' },
+  { key: 'processor', label: 'Processor', width: '160px' },
+  { key: 'operatingSystem', label: 'Operating System', width: '200px' },
+  { key: 'storage', label: 'Storage (SSD)', width: '170px' },
+  { key: 'ram', label: 'RAM', width: '120px' },
+  { key: 'displaySize', label: 'Display Size', width: '160px' },
+  {
+    key: 'graphicCard',
+    label: 'Graphic Card (GPU) – optional',
+    width: '240px',
+  },
+  { key: 'peripherals', label: 'Peripherals', width: '160px' },
+  { key: 'ipad', label: 'iPad', width: '140px' },
+  { key: 'headphones', label: 'Headphones', width: '160px' },
+  { key: 'mobilePhones', label: 'Mobile Phones', width: '180px' },
+  { key: 'externalSsds', label: 'External SSDs', width: '180px' },
+  { key: 'budgetAmount', label: 'Budget Amount', width: '180px' },
 ]
 
 const PERCENTAGE_FIELDS = [
@@ -137,6 +195,9 @@ export default function NewJoineeSheet() {
   )
   const [exporting, setExporting] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [taRows, setTaRows] = useState([])
+  const [taLoading, setTaLoading] = useState(true)
+  const [taError, setTaError] = useState(null)
   const isMountedRef = useRef(true)
   const fileInputRef = useRef(null)
 
@@ -199,12 +260,47 @@ export default function NewJoineeSheet() {
     }
   }, [activeDepartment, isAdmin, token])
 
+  const loadTaRequirements = useCallback(async () => {
+    if (!isMountedRef.current || !token) {
+      return
+    }
+    setTaLoading(true)
+    setTaError(null)
+    try {
+      const params =
+        isAdmin && activeDepartment !== 'all'
+          ? { department: activeDepartment }
+          : undefined
+      const response = await TARequirementAPI.fetchList(token, params)
+      if (!isMountedRef.current) {
+        return
+      }
+      setTaRows(response.data ?? [])
+    } catch (err) {
+      if (!isMountedRef.current) {
+        return
+      }
+      console.error('Failed to load TA requirements', err)
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : err?.message ?? 'Unable to load TA requirements.'
+      setTaError(message)
+      setTaRows([])
+    } finally {
+      if (isMountedRef.current) {
+        setTaLoading(false)
+      }
+    }
+  }, [activeDepartment, isAdmin, token])
+
   useEffect(() => {
     if (!token) {
       return
     }
     loadRows()
-  }, [loadRows, token])
+    loadTaRequirements()
+  }, [loadRows, loadTaRequirements, token])
 
   const handleDepartmentChange = (value) => {
     setActiveDepartment(value)
@@ -286,6 +382,7 @@ export default function NewJoineeSheet() {
         delete next[row._id]
         return next
       })
+      await loadTaRequirements()
     } catch (err) {
       console.error('Failed to save entry', err)
       const message =
@@ -319,6 +416,7 @@ export default function NewJoineeSheet() {
         delete next[row._id]
         return next
       })
+      await loadTaRequirements()
     } catch (err) {
       console.error('Failed to delete entry', err)
       const message =
@@ -376,6 +474,7 @@ export default function NewJoineeSheet() {
           : undefined
       await NewJoineePayrollAPI.uploadSheet(token, file, params)
       await loadRows()
+      await loadTaRequirements()
     } catch (err) {
       console.error('Failed to upload new joinee sheet', err)
       const message =
@@ -420,6 +519,25 @@ export default function NewJoineeSheet() {
   const salesFilterActive = isSalesListingMode && salesScopedRows.length > 0
   const visibleRows =
     salesFilterActive || !isSalesListingMode ? salesScopedRows : rows
+
+  const taScopedRows = useMemo(() => {
+    if (mode === 'source') {
+      return taRows.filter((row) =>
+        (row.sourceDepartmentKeys ?? []).includes(SALES_KEY)
+      )
+    }
+    if (mode === 'beneficiary') {
+      return taRows.filter((row) =>
+        (row.beneficiaryDepartmentKeys ?? []).includes(SALES_KEY)
+      )
+    }
+    return taRows
+  }, [mode, taRows])
+
+  const taSalesFilterActive =
+    isSalesListingMode && taScopedRows.length > 0
+  const visibleTaRows =
+    taSalesFilterActive || !isSalesListingMode ? taScopedRows : taRows
 
   const sheetDescription = useMemo(() => {
     if (isAdmin) {
@@ -493,6 +611,38 @@ export default function NewJoineeSheet() {
         onSaveRow={handleSaveRow}
         onDeleteRow={handleDeleteRow}
       />
+
+      <section className="space-y-4">
+        <div className="flex flex-col gap-1 rounded-3xl border border-slate-900/60 bg-slate-950/60 px-4 py-4 text-sm text-slate-400 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-base font-semibold uppercase tracking-[0.4em] text-slate-300">
+              TA Requirements
+            </p>
+            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
+              Aggregated automatically from New Joinee entries.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={loadTaRequirements}
+            className="text-xs uppercase tracking-[0.4em] text-emerald-300 underline decoration-dotted underline-offset-4"
+          >
+            Refresh
+          </button>
+        </div>
+
+        {taError ? (
+          <div className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            {taError}
+          </div>
+        ) : null}
+
+        <TARequirementsTable
+          columns={TA_COLUMN_DEFINITIONS}
+          rows={visibleTaRows}
+          loading={taLoading}
+        />
+      </section>
     </section>
   )
 }
