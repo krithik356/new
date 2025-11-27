@@ -4,6 +4,128 @@ const MAX_INPUT_WIDTH = 640
 const CHAR_PIXEL_WIDTH = 9
 const EXTRA_PADDING = 32
 
+const WORK_LOCATION_OPTIONS = [
+  'Brigade Towers: Ground Floor - East Wing',
+  'Brigade Towers: First Floor - East Wing',
+  'Brigade Towers: Second Floor - East Wing',
+  'Brigade Towers: Fourth Floor - East Wing',
+  'Brigade Towers: Fourth Floor - West Wing',
+  'Kapil Kavuri Hub - First Floor',
+  'Kapil Kavuri Hub - Fifth Floor',
+  'Kapil Kavuri Hub - Ninth Floor (ALT F)',
+  'iSprout',
+  'Sohini Techpark',
+  'Pune - Experience Center',
+  'Bangalore - NxtWave Office',
+  'Chennai - NxtWave Office',
+  'The Hive',
+  'AMET',
+  'Annamacharya University',
+  'CIET & CITY - Chalapathi',
+  'Delhi - NxtWave Office',
+  'Jaipur - NxtWave Office',
+  'Yenepoya',
+  'Vijayawada - Experience Center',
+  'Tirupati - Experience Center',
+  'Kadapa - Experience Center',
+  'Anantapur - Experience Center',
+  'Noida International University',
+  'Vivekananda Global University',
+  'A Dy Patil University',
+  'Sanjay Ghodawat University',
+  'S-Vyasa University',
+  'Crescent University',
+  'Takshasila University',
+  'NRI',
+  'NSRIT',
+  'Chaitanya Deemed University',
+  'BITS',
+  'Malla Reddy Vishwavidyapeeth',
+  'Aurora University',
+  'BITTS Bilani University',
+  'KFinTech',
+  'Office - We Work',
+]
+
+const EMPLOYMENT_TYPE_OPTIONS = [
+  'Employee',
+  'Freelancer',
+  'Internship',
+  'Intern + Employee',
+  'Consultant',
+  'Consultant + Employee',
+]
+
+const PRODUCT_DOMAIN_OPTIONS = [
+  'Academy',
+  'Intensive',
+  'NIAT',
+  'NAIT',
+  'Operations',
+  'Technology',
+  'Other',
+]
+
+const ASSET_REQUIREMENT_OPTIONS = [
+  'Windows Laptop',
+  'MacBook',
+  'Monitor 24"',
+  'iPad',
+  'Android Tablet',
+  'Mobile Phone',
+  'Desktop',
+  'Accessories',
+  'NA',
+  'Other',
+]
+
+const PROCESSOR_OPTIONS = [
+  'Intel i5',
+  'Intel i7',
+  'Intel i9',
+  'AMD Ryzen 5',
+  'AMD Ryzen 7',
+  'Apple M2',
+  'Apple M3',
+  'Apple M4',
+  'NA',
+]
+
+const OPERATING_SYSTEM_OPTIONS = [
+  'Windows 10',
+  'Windows 11',
+  'Ubuntu',
+  'macOS',
+  'ChromeOS',
+  'NA',
+]
+
+const STORAGE_OPTIONS = ['256 GB', '512 GB', '1 TB', '2 TB', 'NA']
+const RAM_OPTIONS = ['8 GB', '12 GB', '16 GB', '32 GB', '64 GB', 'NA']
+const DISPLAY_SIZE_OPTIONS = ['13 inch', '14 inch', '15 inch', '16 inch', '24" Monitor', '27" Monitor', 'NA']
+const GPU_OPTIONS = ['Integrated', 'NVIDIA GTX 1650', 'NVIDIA RTX 3060', 'NVIDIA RTX 4060', 'Apple GPU', 'NA']
+const PERIPHERAL_OPTIONS = ['Mouse', 'Keyboard', 'Headset', 'Docking Station', 'HDMI Adapter', 'NA', 'Other']
+const HEADPHONE_OPTIONS = ['NA', 'Jabra', 'Sony', 'Bose', 'Apple AirPods', 'Logitech', 'Other']
+const MOBILE_PHONE_OPTIONS = ['NA', 'iPhone', 'Android', 'Samsung', 'OnePlus', 'Pixel', 'Other']
+
+const FIELD_OPTIONS = {
+  workMode: ['WFO', 'WFH', 'Hybrid'],
+  type: ['New Hire', 'Replacement', 'Backfill'],
+  workLocation: WORK_LOCATION_OPTIONS,
+  employmentType: EMPLOYMENT_TYPE_OPTIONS,
+  productOrDomain: PRODUCT_DOMAIN_OPTIONS,
+  assetRequirement: ASSET_REQUIREMENT_OPTIONS,
+  processor: PROCESSOR_OPTIONS,
+  operatingSystem: OPERATING_SYSTEM_OPTIONS,
+  storage: STORAGE_OPTIONS,
+  ram: RAM_OPTIONS,
+  displaySize: DISPLAY_SIZE_OPTIONS,
+  graphicCard: GPU_OPTIONS,
+  peripherals: PERIPHERAL_OPTIONS,
+  headPhone: HEADPHONE_OPTIONS,
+  mobilePhone: MOBILE_PHONE_OPTIONS,
+}
+
 const renderValue = (value) => {
   if (value === null || value === undefined) {
     return '—'
@@ -113,23 +235,37 @@ export default function NewJoineeTable({
                   >
                     {columns.map((column) => {
                       const isDateField = DATE_FIELDS.has(column.key)
+                      const options = FIELD_OPTIONS[column.key]
                       const value = row[column.key] ?? ''
+                      const handleChange = (event) =>
+                        onFieldChange(row._id, column.key, event.target.value)
+
                       return (
                         <td key={column.key} className="px-4 py-3 align-top text-sm text-slate-200">
                           {showEditControls ? (
-                            <input
-                              type={isDateField ? 'date' : 'text'}
-                              value={value}
-                              onChange={(event) =>
-                                onFieldChange(
-                                  row._id,
-                                  column.key,
-                                  event.target.value
-                                )
-                              }
-                              style={buildInputStyle(column, value, isDateField)}
-                              className="rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
-                            />
+                            options ? (
+                              <select
+                                value={value}
+                                onChange={handleChange}
+                                style={buildInputStyle(column, value, false)}
+                                className="rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+                              >
+                                <option value="">Select {column.label}</option>
+                                {options.map((option) => (
+                                  <option key={option} value={option}>
+                                    {option}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <input
+                                type={isDateField ? 'date' : 'text'}
+                                value={value}
+                                onChange={handleChange}
+                                style={buildInputStyle(column, value, isDateField)}
+                                className="rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+                              />
+                            )
                           ) : (
                             renderValue(row[column.key])
                           )}

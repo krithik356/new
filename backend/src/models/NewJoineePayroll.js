@@ -63,7 +63,10 @@ const NewJoineePayrollSchema = new Schema(
     niatBatch2: stringField,
     niatBatch3: stringField,
     others: stringField,
-    comments: stringField,
+    common: {
+      ...stringField,
+      alias: "comments",
+    },
     createdBy: {
       type: Schema.Types.ObjectId,
       ref: "User",

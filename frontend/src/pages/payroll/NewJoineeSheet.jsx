@@ -49,7 +49,7 @@ const COLUMN_DEFINITIONS = [
   { key: 'niatBatch2', label: 'NIAT Batch 2', width: '150px' },
   { key: 'niatBatch3', label: 'NIAT Batch 3', width: '150px' },
   { key: 'others', label: 'Others', width: '150px' },
-  { key: 'comments', label: 'Comments', width: '220px' },
+  { key: 'common', label: 'Common', width: '220px' },
 ]
 
 const TA_COLUMN_DEFINITIONS = [
@@ -114,7 +114,6 @@ const PERCENTAGE_FIELDS = [
   'niatBatch2',
   'niatBatch3',
   'others',
-  'comments',
 ]
 
 const SALES_KEY = 'sales'
@@ -190,6 +189,7 @@ export default function NewJoineeSheet() {
   const [savingId, setSavingId] = useState(null)
   const [rowErrors, setRowErrors] = useState({})
   const [error, setError] = useState(null)
+  const [successMessage, setSuccessMessage] = useState(null)
   const [activeDepartment, setActiveDepartment] = useState(
     role === 'Admin' ? 'all' : 'hod'
   )
@@ -199,6 +199,7 @@ export default function NewJoineeSheet() {
   const [taRows, setTaRows] = useState([])
   const [taLoading, setTaLoading] = useState(true)
   const [taError, setTaError] = useState(null)
+  const [taSuccessMessage, setTaSuccessMessage] = useState(null)
   const [taSavingId, setTaSavingId] = useState(null)
   const [taRowErrors, setTaRowErrors] = useState({})
   const [taExporting, setTaExporting] = useState(false)
@@ -229,6 +230,11 @@ export default function NewJoineeSheet() {
       isMountedRef.current = false
     }
   }, [])
+
+  const showTransientMessage = (setter, message, duration = 4000) => {
+    setter(message)
+    window.setTimeout(() => setter(null), duration)
+  }
 
   const loadRows = useCallback(async () => {
     if (!isMountedRef.current) {
@@ -387,6 +393,7 @@ export default function NewJoineeSheet() {
         delete next[row._id]
         return next
       })
+      showTransientMessage(setSuccessMessage, 'Sheet updated successfully.')
       await loadTaRequirements()
     } catch (err) {
       console.error('Failed to save entry', err)
@@ -551,6 +558,7 @@ export default function NewJoineeSheet() {
         delete next[row._id]
         return next
       })
+      showTransientMessage(setTaSuccessMessage, 'TA sheet updated successfully.')
     } catch (err) {
       console.error('Failed to save TA requirement entry', err)
       const message =
@@ -726,6 +734,11 @@ export default function NewJoineeSheet() {
           {error}
         </div>
       ) : null}
+      {successMessage ? (
+        <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+          {successMessage}
+        </div>
+      ) : null}
 
       <NewJoineeTable
         columns={COLUMN_DEFINITIONS}
@@ -781,6 +794,11 @@ export default function NewJoineeSheet() {
         {taError ? (
           <div className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
             {taError}
+          </div>
+        ) : null}
+        {taSuccessMessage ? (
+          <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+            {taSuccessMessage}
           </div>
         ) : null}
 

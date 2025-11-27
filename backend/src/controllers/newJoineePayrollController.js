@@ -49,7 +49,7 @@ const editableFields = [
   "niatBatch2",
   "niatBatch3",
   "others",
-  "comments",
+  "common",
 ];
 
 const columnDefinitions = [
@@ -92,7 +92,7 @@ const columnDefinitions = [
   { header: "NIAT Batch 2", key: "niatBatch2" },
   { header: "NIAT Batch 3", key: "niatBatch3" },
   { header: "Others", key: "others" },
-  { header: "Comments", key: "comments" },
+  { header: "Common", key: "common" },
 ];
 
 const percentageFields = [
@@ -102,7 +102,6 @@ const percentageFields = [
   "niatBatch2",
   "niatBatch3",
   "others",
-  "comments",
 ];
 
 function normalizeDepartmentKey(value) {
@@ -355,9 +354,19 @@ async function listNewJoinees(req, res) {
       .sort({ updatedAt: -1 })
       .lean();
 
+    const normalizedRecords = records.map((record) => {
+      if (record.common === undefined && record.comments !== undefined) {
+        return {
+          ...record,
+          common: record.comments,
+        };
+      }
+      return record;
+    });
+
     return res.status(200).json({
       success: true,
-      data: records,
+      data: normalizedRecords,
     });
   } catch (error) {
     return res.status(500).json({

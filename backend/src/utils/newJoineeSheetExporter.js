@@ -40,7 +40,7 @@ const COLUMN_DEFINITIONS = [
   { header: "NIAT Batch 2", key: "niatBatch2" },
   { header: "NIAT Batch 3", key: "niatBatch3" },
   { header: "Others", key: "others" },
-  { header: "Comments", key: "comments" },
+  { header: "Common", key: "common" },
 ];
 
 function formatDate(value) {
