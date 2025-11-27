@@ -6,6 +6,7 @@ const {
   syncTARequirementsForRoles,
   syncAllTARequirements,
 } = require("../utils/taRequirementAggregator");
+const { buildTARequirementWorkbook } = require("../utils/taRequirementSheetExporter");
 
 const { Types } = mongoose;
 
@@ -319,12 +320,60 @@ async function syncTARequirements(req, res) {
   }
 }
 
+async function exportTARequirementSheet(req, res) {
+  try {
+    const { role, department: userDepartment } = req.user;
+    const { department: queryDepartment } = req.query;
+
+    const filter = {};
+
+    if (role === "HOD") {
+      if (!userDepartment) {
+        return res.status(400).json({
+          success: false,
+          message: "Department mapping missing for current HOD.",
+        });
+      }
+      filter.departmentIds = userDepartment;
+    } else if (queryDepartment && queryDepartment !== "all") {
+      const normalizedDepartment = normalizeDepartmentKey(queryDepartment);
+      if (normalizedDepartment) {
+        filter.departmentKeys = normalizedDepartment;
+      }
+    }
+
+    const records = await TARequirement.find(filter)
+      .sort({ roleName: 1 })
+      .lean();
+
+    const workbook = await buildTARequirementWorkbook(records);
+    const fileName = `ta_requirements_${new Date()
+      .toISOString()
+      .slice(0, 10)}.xlsx`;
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+
+    await workbook.xlsx.write(res);
+    return res.end();
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Unable to export TA requirements sheet.",
+    });
+  }
+}
+
 module.exports = {
   listTARequirements,
   createTARequirement,
   updateTARequirement,
   deleteTARequirement,
   syncTARequirements,
+  exportTARequirementSheet,
 };
 
 

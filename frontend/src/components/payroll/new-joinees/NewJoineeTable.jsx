@@ -4,6 +4,17 @@ const MAX_INPUT_WIDTH = 640
 const CHAR_PIXEL_WIDTH = 9
 const EXTRA_PADDING = 32
 
+const renderValue = (value) => {
+  if (value === null || value === undefined) {
+    return '—'
+  }
+  if (typeof value === 'number') {
+    return Number.isNaN(value) ? '—' : value
+  }
+  const normalized = value.toString().trim()
+  return normalized.length > 0 ? normalized : '—'
+}
+
 const getNumericWidth = (width) => {
   if (typeof width === 'number') {
     return width
@@ -41,12 +52,15 @@ export default function NewJoineeTable({
   loading,
   savingId,
   role,
+  isEditMode = false,
   onFieldChange,
   onSaveRow,
   onDeleteRow,
   rowErrors = {},
 }) {
   const canDelete = role === 'Admin' || role === 'HOD'
+  const canEdit = role === 'Admin' || role === 'HOD'
+  const showEditControls = isEditMode && canEdit
 
   return (
     <div className="overflow-hidden rounded-3xl border border-slate-800/70 bg-slate-950/80 shadow-2xl shadow-black/30">
@@ -63,16 +77,18 @@ export default function NewJoineeTable({
                   {column.label}
                 </th>
               ))}
-              <th className="w-40 px-4 py-3 text-right text-[0.65rem] uppercase tracking-[0.5em] text-slate-500">
-                Actions
-              </th>
+              {showEditControls && (
+                <th className="w-40 px-4 py-3 text-right text-[0.65rem] uppercase tracking-[0.5em] text-slate-500">
+                  Actions
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
                 <td
-                  colSpan={columns.length + 1}
+                  colSpan={columns.length + (showEditControls ? 1 : 0)}
                   className="px-4 py-16 text-center text-sm text-slate-400"
                 >
                   Loading new joinee sheet…
@@ -81,10 +97,10 @@ export default function NewJoineeTable({
             ) : rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={columns.length + 1}
+                  colSpan={columns.length + (showEditControls ? 1 : 0)}
                   className="px-4 py-16 text-center text-sm text-slate-400"
                 >
-                  No entries yet. Use “Add Row” to begin planning.
+                  No entries yet. Use "Add Row" to begin planning.
                 </td>
               </tr>
             ) : (
@@ -99,24 +115,29 @@ export default function NewJoineeTable({
                       const isDateField = DATE_FIELDS.has(column.key)
                       const value = row[column.key] ?? ''
                       return (
-                        <td key={column.key} className="px-4 py-3 align-top">
-                          <input
-                            type={isDateField ? 'date' : 'text'}
-                            value={value}
-                            onChange={(event) =>
-                              onFieldChange(
-                                row._id,
-                                column.key,
-                                event.target.value
-                              )
-                            }
-                            style={buildInputStyle(column, value, isDateField)}
-                            className="rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
-                          />
+                        <td key={column.key} className="px-4 py-3 align-top text-sm text-slate-200">
+                          {showEditControls ? (
+                            <input
+                              type={isDateField ? 'date' : 'text'}
+                              value={value}
+                              onChange={(event) =>
+                                onFieldChange(
+                                  row._id,
+                                  column.key,
+                                  event.target.value
+                                )
+                              }
+                              style={buildInputStyle(column, value, isDateField)}
+                              className="rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+                            />
+                          ) : (
+                            renderValue(row[column.key])
+                          )}
                         </td>
                       )
                     })}
-                    <td className="px-4 py-3 text-right">
+                    {showEditControls && (
+                      <td className="px-4 py-3 text-right">
                       <div className="flex flex-col gap-2 text-xs text-slate-400">
                         <button
                           type="button"
@@ -141,7 +162,8 @@ export default function NewJoineeTable({
                           </p>
                         ) : null}
                       </div>
-                    </td>
+                      </td>
+                    )}
                   </tr>
                 )
               })

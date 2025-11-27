@@ -251,19 +251,52 @@ function normalizeDates(payload) {
   return cloned;
 }
 
+function normalizeHeaderValue(cell) {
+  if (!cell) {
+    return "";
+  }
+  const rawValue =
+    typeof cell === "string"
+      ? cell
+      : cell?.text ?? cell?.result ?? cell?.toString?.() ?? "";
+  return rawValue
+    .toString()
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
 function validateWorksheetColumns(worksheet) {
   const headerRow = worksheet.getRow(1);
-  const receivedHeaders = headerRow.values
-    .slice(1)
-    .map((cell) => (cell || "").toString().trim());
+  const receivedHeaders = headerRow.values.slice(1);
 
   if (receivedHeaders.length !== columnDefinitions.length) {
-    throw new Error("Columns do not match the required format.");
+    const difference = receivedHeaders.length - columnDefinitions.length;
+    const hint =
+      difference > 0
+        ? `${Math.abs(difference)} extra column(s)`
+        : `${Math.abs(difference)} missing column(s)`;
+    throw new Error(
+      `Sheet header has ${receivedHeaders.length} column(s) but ${columnDefinitions.length} are required (${hint}). Please download the latest template using "Generate Sheet".`
+    );
   }
 
   columnDefinitions.forEach((column, index) => {
-    if (receivedHeaders[index] !== column.header) {
-      throw new Error("Columns do not match the required format.");
+    const expected = normalizeHeaderValue(column.header);
+    const actual = normalizeHeaderValue(receivedHeaders[index]);
+    if (expected !== actual) {
+      const displayActual =
+        typeof receivedHeaders[index] === "object"
+          ? receivedHeaders[index]?.text ??
+            receivedHeaders[index]?.result ??
+            receivedHeaders[index]?.toString?.() ??
+            ""
+          : receivedHeaders[index] ?? "";
+      throw new Error(
+        `Column ${index + 1} is "${displayActual}" but should be "${
+          column.header
+        }". Please ensure the header row matches the generated template exactly (formatting such as bold/italics is ignored).`
+      );
     }
   });
 }
@@ -609,56 +642,63 @@ async function uploadNewJoineeSheet(req, res) {
         continue;
       }
 
-      const mappedPayload = mapRowToPayload(row);
+      try {
+        const mappedPayload = mapRowToPayload(row);
 
-      ensurePercentageAllocation(mappedPayload);
+        ensurePercentageAllocation(mappedPayload);
 
-      const departmentMeta = await resolveDepartmentContext({
-        role,
-        userDepartment,
-        payload: {
-          departmentKey: mappedPayload.departmentLabel,
-          departmentLabel: mappedPayload.departmentLabel,
-        },
-      });
+        const departmentMeta = await resolveDepartmentContext({
+          role,
+          userDepartment,
+          payload: {
+            departmentKey: mappedPayload.departmentLabel,
+            departmentLabel: mappedPayload.departmentLabel,
+          },
+        });
 
-      const payload = normalizeDates({
-        ...mappedPayload,
-        department: departmentMeta.departmentId,
-        departmentKey: departmentMeta.departmentKey,
-        departmentLabel: departmentMeta.departmentLabel,
-        updatedBy: userId,
-      });
+        const payload = normalizeDates({
+          ...mappedPayload,
+          department: departmentMeta.departmentId,
+          departmentKey: departmentMeta.departmentKey,
+          departmentLabel: departmentMeta.departmentLabel,
+          updatedBy: userId,
+        });
 
-      if (!payload.employeeName?.trim()) {
-        throw new Error(
-          `Row ${rowIndex}: Employee name is required before import.`
-        );
-      }
-
-      const identifier = payload.employeeName.trim();
-      let record = null;
-
-      if (identifier) {
-        const query = {
-          employeeName: new RegExp(`^${identifier}$`, "i"),
-        };
-
-        if (payload.departmentKey) {
-          query.departmentKey = payload.departmentKey;
+        if (!payload.employeeName?.trim()) {
+          throw new Error("Employee name is required before import.");
         }
 
-        record = await NewJoineePayroll.findOne(query);
-      }
+        const identifier = payload.employeeName.trim();
+        let record = null;
 
-      if (record) {
-        Object.assign(record, payload);
-        await record.save();
-      } else {
-        await NewJoineePayroll.create({
-          ...payload,
-          createdBy: userId,
-        });
+        if (identifier) {
+          const query = {
+            employeeName: new RegExp(`^${identifier}$`, "i"),
+          };
+
+          if (payload.departmentKey) {
+            query.departmentKey = payload.departmentKey;
+          }
+
+          record = await NewJoineePayroll.findOne(query);
+        }
+
+        if (record) {
+          Object.assign(record, payload);
+          await record.save();
+        } else {
+          await NewJoineePayroll.create({
+            ...payload,
+            createdBy: userId,
+          });
+        }
+      } catch (rowError) {
+        const message = rowError?.message || "Unable to process this row.";
+        throw new Error(
+          message.startsWith("Row ")
+            ? message
+            : `Row ${rowIndex}: ${message}`
+        );
       }
     }
 

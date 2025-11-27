@@ -195,9 +195,14 @@ export default function NewJoineeSheet() {
   )
   const [exporting, setExporting] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [editMode, setEditMode] = useState(false)
   const [taRows, setTaRows] = useState([])
   const [taLoading, setTaLoading] = useState(true)
   const [taError, setTaError] = useState(null)
+  const [taSavingId, setTaSavingId] = useState(null)
+  const [taRowErrors, setTaRowErrors] = useState({})
+  const [taExporting, setTaExporting] = useState(false)
+  const [taEditMode, setTaEditMode] = useState(false)
   const isMountedRef = useRef(true)
   const fileInputRef = useRef(null)
 
@@ -501,6 +506,117 @@ export default function NewJoineeSheet() {
     event.target.value = ''
   }
 
+  const handleTaFieldChange = (rowId, field, value) => {
+    setTaRows((prev) =>
+      prev.map((row) => {
+        if (row._id !== rowId) return row
+        return {
+          ...row,
+          [field]: value,
+        }
+      })
+    )
+  }
+
+  const handleTaSaveRow = async (row) => {
+    if (!row.roleName?.trim()) {
+      setTaError('Role name is required before saving.')
+      return
+    }
+
+    setTaSavingId(row._id)
+    setTaError(null)
+    try {
+      const payload = { ...row }
+      // Remove _id and other non-editable fields if needed
+      delete payload._id
+      delete payload.roleNameNormalized
+      delete payload.createdAt
+      delete payload.updatedAt
+      delete payload.createdBy
+      delete payload.updatedBy
+
+      const response = row._id.startsWith('temp-')
+        ? await TARequirementAPI.create(token, payload)
+        : await TARequirementAPI.update(token, row._id, payload)
+
+      setTaRows((prev) =>
+        prev.map((existing) =>
+          existing._id === row._id ? response.data : existing
+        )
+      )
+      setTaRowErrors((prev) => {
+        if (!prev[row._id]) return prev
+        const next = { ...prev }
+        delete next[row._id]
+        return next
+      })
+    } catch (err) {
+      console.error('Failed to save TA requirement entry', err)
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : err?.message ?? 'Unable to save the selected TA requirement row.'
+      setTaError(message)
+    } finally {
+      setTaSavingId(null)
+    }
+  }
+
+  const handleTaDeleteRow = async (row) => {
+    if (!row?._id || row._id.startsWith('temp-')) {
+      setTaRows((prev) => prev.filter((item) => item._id !== row._id))
+      setTaRowErrors((prev) => {
+        if (!prev[row._id]) return prev
+        const next = { ...prev }
+        delete next[row._id]
+        return next
+      })
+      return
+    }
+
+    try {
+      await TARequirementAPI.remove(token, row._id)
+      setTaRows((prev) => prev.filter((item) => item._id !== row._id))
+      setTaRowErrors((prev) => {
+        if (!prev[row._id]) return prev
+        const next = { ...prev }
+        delete next[row._id]
+        return next
+      })
+    } catch (err) {
+      console.error('Failed to delete TA requirement entry', err)
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : err?.message ?? 'Unable to delete the selected TA requirement row.'
+      setTaError(message)
+    }
+  }
+
+  const handleTaGenerateSheet = async () => {
+    if (!token || taExporting) {
+      return
+    }
+    setTaExporting(true)
+    try {
+      const params =
+        isAdmin && activeDepartment !== 'all'
+          ? { department: activeDepartment }
+          : undefined
+      await TARequirementAPI.exportSheet(token, params)
+    } catch (err) {
+      console.error('Failed to export TA requirements sheet', err)
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : err?.message ?? 'Unable to generate the TA requirements sheet.'
+      setTaError(message)
+    } finally {
+      setTaExporting(false)
+    }
+  }
+
   const salesScopedRows = useMemo(() => {
     if (mode === 'source') {
       return rows.filter(
@@ -585,13 +701,24 @@ export default function NewJoineeSheet() {
 
       <div className="flex items-center justify-between rounded-3xl border border-slate-900/60 bg-slate-950/60 px-4 py-3 text-sm text-slate-400">
         <p>{sheetDescription}</p>
-        <button
-          type="button"
-          onClick={loadRows}
-          className="text-xs uppercase tracking-[0.4em] text-emerald-300 underline decoration-dotted underline-offset-4"
-        >
-          Refresh
-        </button>
+        <div className="flex items-center gap-3">
+          {(role === 'Admin' || role === 'HOD') && (
+            <button
+              type="button"
+              onClick={() => setEditMode(!editMode)}
+              className="inline-flex items-center justify-center rounded-2xl border border-blue-400/50 bg-blue-500/10 px-4 py-2 text-xs font-semibold text-blue-200 transition hover:bg-blue-500/20 hover:text-blue-100"
+            >
+              {editMode ? 'View Mode' : 'Edit'}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={loadRows}
+            className="text-xs uppercase tracking-[0.4em] text-emerald-300 underline decoration-dotted underline-offset-4"
+          >
+            Refresh
+          </button>
+        </div>
       </div>
 
       {error ? (
@@ -605,6 +732,7 @@ export default function NewJoineeSheet() {
         rows={visibleRows}
         loading={loading}
         role={role}
+        isEditMode={editMode}
         savingId={savingId}
         rowErrors={rowErrors}
         onFieldChange={handleFieldChange}
@@ -622,13 +750,32 @@ export default function NewJoineeSheet() {
               Aggregated automatically from New Joinee entries.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={loadTaRequirements}
-            className="text-xs uppercase tracking-[0.4em] text-emerald-300 underline decoration-dotted underline-offset-4"
-          >
-            Refresh
-          </button>
+          <div className="flex items-center gap-3">
+            {(role === 'Admin' || role === 'HOD') && (
+              <button
+                type="button"
+                onClick={() => setTaEditMode(!taEditMode)}
+                className="inline-flex items-center justify-center rounded-2xl border border-blue-400/50 bg-blue-500/10 px-4 py-2 text-xs font-semibold text-blue-200 transition hover:bg-blue-500/20 hover:text-blue-100"
+              >
+                {taEditMode ? 'View Mode' : 'Edit'}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleTaGenerateSheet}
+              disabled={taLoading || taExporting}
+              className="inline-flex items-center justify-center rounded-2xl border border-cyan-400/50 bg-cyan-500/10 px-4 py-2 text-xs font-semibold text-cyan-200 transition hover:bg-cyan-500/20 hover:text-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {taExporting ? 'Generating…' : 'Generate Sheet'}
+            </button>
+            <button
+              type="button"
+              onClick={loadTaRequirements}
+              className="text-xs uppercase tracking-[0.4em] text-emerald-300 underline decoration-dotted underline-offset-4"
+            >
+              Refresh
+            </button>
+          </div>
         </div>
 
         {taError ? (
@@ -641,6 +788,13 @@ export default function NewJoineeSheet() {
           columns={TA_COLUMN_DEFINITIONS}
           rows={visibleTaRows}
           loading={taLoading}
+          role={role}
+          isEditMode={taEditMode}
+          savingId={taSavingId}
+          rowErrors={taRowErrors}
+          onFieldChange={handleTaFieldChange}
+          onSaveRow={handleTaSaveRow}
+          onDeleteRow={handleTaDeleteRow}
         />
       </section>
     </section>

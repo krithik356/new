@@ -6,6 +6,7 @@ const {
   updateTARequirement,
   deleteTARequirement,
   syncTARequirements,
+  exportTARequirementSheet,
 } = require("../controllers/taRequirementController");
 const { authenticate } = require("../middleware/authenticate");
 const { authorizeRole } = require("../middleware/authorize");
@@ -64,6 +65,16 @@ router.post(
     validateRequest,
   ],
   syncTARequirements
+);
+
+router.get(
+  "/export",
+  [
+    authorizeRole("Admin", "HOD"),
+    query("department").optional().isString().trim(),
+    validateRequest,
+  ],
+  exportTARequirementSheet
 );
 
 module.exports = router;
