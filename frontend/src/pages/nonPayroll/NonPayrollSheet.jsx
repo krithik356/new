@@ -91,13 +91,35 @@ const formatDateInput = (value) => {
   return date.toISOString().slice(0, 10)
 }
 
+const formatDuration = (days) => {
+  if (days === '' || days === null || days === undefined) return ''
+  const totalDays = Number(days)
+  if (Number.isNaN(totalDays) || totalDays < 0) return ''
+  if (totalDays === 0) return '0 days'
+  
+  // Approximate months (using 30 days per month for simplicity)
+  const months = Math.floor(totalDays / 30)
+  const remainingDays = totalDays % 30
+  
+  const parts = []
+  if (months > 0) {
+    parts.push(`${months} ${months === 1 ? 'month' : 'months'}`)
+  }
+  if (remainingDays > 0) {
+    parts.push(`${remainingDays} ${remainingDays === 1 ? 'day' : 'days'}`)
+  }
+  
+  return parts.length > 0 ? parts.join(' ') : '0 days'
+}
+
 const calculateDuration = (start, end) => {
   if (!start || !end) return ''
   const startDate = new Date(start)
   const endDate = new Date(end)
   if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return ''
   const diff = Math.floor((endDate - startDate) / 86400000)
-  return diff >= 0 ? diff : ''
+  if (diff < 0) return ''
+  return diff.toString()
 }
 
 const calculateInclGst = (exc, gst) => {
@@ -127,7 +149,8 @@ const normalizeRecord = (record) => {
   normalized.serviceDurationDays =
     record.serviceDurationDays === null || record.serviceDurationDays === undefined
       ? ''
-      : record.serviceDurationDays
+      : String(record.serviceDurationDays)
+  normalized.serviceDurationFormatted = formatDuration(normalized.serviceDurationDays)
   return normalized
 }
 
@@ -194,7 +217,8 @@ export default function NonPayrollSheet() {
     const duration = calculateDuration(row.serviceStartDate, row.serviceEndDate)
     const total = calculateInclGst(row.budgetedPaymentAmountExcGst, row.gstAmount)
     return {
-      serviceDurationDays: duration === '' ? '' : duration,
+      serviceDurationDays: duration,
+      serviceDurationFormatted: formatDuration(duration),
       budgetedPaymentAmountInclGst: total === '' ? '' : total,
     }
   }
@@ -269,14 +293,11 @@ export default function NonPayrollSheet() {
         if (DATE_FIELDS.includes(field) || NUMERIC_FIELDS.includes(field)) {
           const derived = recalcDerivedFields(nextRow)
           nextRow.serviceDurationDays = derived.serviceDurationDays
+          nextRow.serviceDurationFormatted = derived.serviceDurationFormatted
           nextRow.budgetedPaymentAmountInclGst = derived.budgetedPaymentAmountInclGst
         }
         return nextRow
       })
-      const updatedRow = nextRows.find((row) => row._id === rowId)
-      if (updatedRow) {
-        validateRow(updatedRow, nextRows)
-      }
       return nextRows
     })
   }
@@ -306,9 +327,22 @@ export default function NonPayrollSheet() {
   }
 
   const saveRow = async (row) => {
+    // Validate the row before saving
     const errors = validateRow(row, rows)
     if (errors && Object.keys(errors).length > 0) {
-      setErrorMessage('Fix the highlighted fields before saving.')
+      setErrorMessage('Please fix the validation errors highlighted below before saving.')
+      // Scroll to the first error if possible
+      const firstErrorField = Object.keys(errors)[0]
+      const errorContainer = document.querySelector(`[data-row-id="${row._id}"][data-field="${firstErrorField}"]`)
+      if (errorContainer) {
+        const inputElement = errorContainer.querySelector('input, select, textarea')
+        if (inputElement) {
+          setTimeout(() => {
+            inputElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            inputElement.focus()
+          }, 100)
+        }
+      }
       return
     }
 
@@ -326,6 +360,7 @@ export default function NonPayrollSheet() {
         )
       )
       setInfoMessage(row._id.startsWith('temp-') ? 'Row added successfully.' : 'Row updated successfully.')
+      // Clear validation errors on successful save
       updateRowErrors(row._id, null)
     } catch (error) {
       console.error('Failed to save non-payroll row', error)

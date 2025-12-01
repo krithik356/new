@@ -78,7 +78,11 @@ router.put(
 
 router.delete(
   "/:id",
-  [authorizeRole("Admin"), param("id").isString().trim(), validateRequest],
+  [
+    authorizeRole("Admin", "HOD"),
+    param("id").isString().trim(),
+    validateRequest,
+  ],
   deleteExistingEmployee
 );
 

@@ -46,7 +46,7 @@ export default function PayrollPage() {
             </button>
           )
         })}
-      </div>
+                        </div>
 
       {activeTab === 'existing' ? <ExistingEmployeesSheet /> : <NewJoineeSheet />}
     </section>

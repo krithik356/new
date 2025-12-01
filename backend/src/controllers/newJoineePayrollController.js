@@ -3,6 +3,10 @@ const ExcelJS = require("exceljs");
 const { NewJoineePayroll } = require("../models/NewJoineePayroll");
 const { Department } = require("../models/Department");
 const { buildNewJoineeWorkbook } = require("../utils/newJoineeSheetExporter");
+const {
+  syncTARequirementsForRoles,
+  syncAllTARequirements,
+} = require("../utils/taRequirementAggregator");
 
 const editableFields = [
   "sbuClp",
@@ -21,11 +25,12 @@ const editableFields = [
   "workMode",
   "workLocation",
   "employmentType",
+  "remarks",
+  "ctcRange",
   "experienceRange",
   "newType",
   "replacementEmployeeName",
   "productOrDomain",
-  "clh",
   "assetRequirement",
   "processor",
   "operatingSystem",
@@ -44,7 +49,7 @@ const editableFields = [
   "niatBatch2",
   "niatBatch3",
   "others",
-  "comments",
+  "common",
 ];
 
 const columnDefinitions = [
@@ -63,11 +68,12 @@ const columnDefinitions = [
   { header: "WFO/WFH", key: "workMode" },
   { header: "Work Location", key: "workLocation" },
   { header: "Employment Type", key: "employmentType" },
+  { header: "Remarks", key: "remarks" },
+  { header: "CTC Range", key: "ctcRange" },
   { header: "Experience Range", key: "experienceRange" },
   { header: "New Type", key: "newType" },
   { header: "Replacement Employee Name", key: "replacementEmployeeName" },
   { header: "Product / Working Domain", key: "productOrDomain" },
-  { header: "C/L/H", key: "clh" },
   { header: "Asset we have to provide", key: "assetRequirement" },
   { header: "Processor", key: "processor" },
   { header: "Operating System", key: "operatingSystem" },
@@ -86,7 +92,7 @@ const columnDefinitions = [
   { header: "NIAT Batch 2", key: "niatBatch2" },
   { header: "NIAT Batch 3", key: "niatBatch3" },
   { header: "Others", key: "others" },
-  { header: "Comments", key: "comments" },
+  { header: "Common", key: "common" },
 ];
 
 const percentageFields = [
@@ -96,7 +102,6 @@ const percentageFields = [
   "niatBatch2",
   "niatBatch3",
   "others",
-  "comments",
 ];
 
 function normalizeDepartmentKey(value) {
@@ -245,19 +250,52 @@ function normalizeDates(payload) {
   return cloned;
 }
 
+function normalizeHeaderValue(cell) {
+  if (!cell) {
+    return "";
+  }
+  const rawValue =
+    typeof cell === "string"
+      ? cell
+      : cell?.text ?? cell?.result ?? cell?.toString?.() ?? "";
+  return rawValue
+    .toString()
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
 function validateWorksheetColumns(worksheet) {
   const headerRow = worksheet.getRow(1);
-  const receivedHeaders = headerRow.values
-    .slice(1)
-    .map((cell) => (cell || "").toString().trim());
+  const receivedHeaders = headerRow.values.slice(1);
 
   if (receivedHeaders.length !== columnDefinitions.length) {
-    throw new Error("Columns do not match the required format.");
+    const difference = receivedHeaders.length - columnDefinitions.length;
+    const hint =
+      difference > 0
+        ? `${Math.abs(difference)} extra column(s)`
+        : `${Math.abs(difference)} missing column(s)`;
+    throw new Error(
+      `Sheet header has ${receivedHeaders.length} column(s) but ${columnDefinitions.length} are required (${hint}). Please download the latest template using "Generate Sheet".`
+    );
   }
 
   columnDefinitions.forEach((column, index) => {
-    if (receivedHeaders[index] !== column.header) {
-      throw new Error("Columns do not match the required format.");
+    const expected = normalizeHeaderValue(column.header);
+    const actual = normalizeHeaderValue(receivedHeaders[index]);
+    if (expected !== actual) {
+      const displayActual =
+        typeof receivedHeaders[index] === "object"
+          ? receivedHeaders[index]?.text ??
+            receivedHeaders[index]?.result ??
+            receivedHeaders[index]?.toString?.() ??
+            ""
+          : receivedHeaders[index] ?? "";
+      throw new Error(
+        `Column ${index + 1} is "${displayActual}" but should be "${
+          column.header
+        }". Please ensure the header row matches the generated template exactly (formatting such as bold/italics is ignored).`
+      );
     }
   });
 }
@@ -316,9 +354,19 @@ async function listNewJoinees(req, res) {
       .sort({ updatedAt: -1 })
       .lean();
 
+    const normalizedRecords = records.map((record) => {
+      if (record.common === undefined && record.comments !== undefined) {
+        return {
+          ...record,
+          common: record.comments,
+        };
+      }
+      return record;
+    });
+
     return res.status(200).json({
       success: true,
-      data: records,
+      data: normalizedRecords,
     });
   } catch (error) {
     return res.status(500).json({
@@ -400,6 +448,8 @@ async function createNewJoinee(req, res) {
 
     const record = await NewJoineePayroll.create(payload);
 
+    await syncTARequirementsForRoles([record.designation]);
+
     return res.status(201).json({
       success: true,
       data: record,
@@ -465,6 +515,8 @@ async function updateNewJoinee(req, res) {
       });
     }
 
+    const previousDesignation = record.designation;
+
     const updates = normalizeDates({
       ...pickEditableFields(req.body),
       updatedBy: userId,
@@ -481,6 +533,11 @@ async function updateNewJoinee(req, res) {
     Object.assign(record, updates);
     await record.save();
 
+    await syncTARequirementsForRoles([
+      previousDesignation,
+      record.designation,
+    ]);
+
     return res.status(200).json({
       success: true,
       data: record,
@@ -496,6 +553,7 @@ async function updateNewJoinee(req, res) {
 async function deleteNewJoinee(req, res) {
   try {
     const { id } = req.params;
+    const { role, department: userDepartment } = req.user;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
@@ -513,7 +571,21 @@ async function deleteNewJoinee(req, res) {
       });
     }
 
+    if (
+      role === "HOD" &&
+      record.department &&
+      userDepartment &&
+      record.department.toString() !== userDepartment.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only delete entries from your department.",
+      });
+    }
+
     await record.deleteOne();
+
+    await syncTARequirementsForRoles([record.designation]);
 
     return res.status(200).json({
       success: true,
@@ -537,7 +609,21 @@ async function uploadNewJoineeSheet(req, res) {
     }
 
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(req.file.buffer);
+    try {
+      await workbook.xlsx.load(req.file.buffer);
+    } catch (loadError) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Excel file format. Please ensure the file is a valid .xlsx file.",
+      });
+    }
+
+    if (!workbook.worksheets || workbook.worksheets.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Uploaded workbook has no worksheets. Please ensure the Excel file contains at least one sheet.",
+      });
+    }
 
     const worksheet = workbook.worksheets[0];
 
@@ -545,6 +631,13 @@ async function uploadNewJoineeSheet(req, res) {
       return res.status(400).json({
         success: false,
         message: "Uploaded workbook is empty.",
+      });
+    }
+
+    if (worksheet.rowCount < 2) {
+      return res.status(400).json({
+        success: false,
+        message: "Uploaded sheet has no data rows. Please ensure the sheet contains at least one data row after the header.",
       });
     }
 
@@ -558,58 +651,67 @@ async function uploadNewJoineeSheet(req, res) {
         continue;
       }
 
-      const mappedPayload = mapRowToPayload(row);
+      try {
+        const mappedPayload = mapRowToPayload(row);
 
-      ensurePercentageAllocation(mappedPayload);
+        ensurePercentageAllocation(mappedPayload);
 
-      const departmentMeta = await resolveDepartmentContext({
-        role,
-        userDepartment,
-        payload: {
-          departmentKey: mappedPayload.departmentLabel,
-          departmentLabel: mappedPayload.departmentLabel,
-        },
-      });
+        const departmentMeta = await resolveDepartmentContext({
+          role,
+          userDepartment,
+          payload: {
+            departmentKey: mappedPayload.departmentLabel,
+            departmentLabel: mappedPayload.departmentLabel,
+          },
+        });
 
-      const payload = normalizeDates({
-        ...mappedPayload,
-        department: departmentMeta.departmentId,
-        departmentKey: departmentMeta.departmentKey,
-        departmentLabel: departmentMeta.departmentLabel,
-        updatedBy: userId,
-      });
+        const payload = normalizeDates({
+          ...mappedPayload,
+          department: departmentMeta.departmentId,
+          departmentKey: departmentMeta.departmentKey,
+          departmentLabel: departmentMeta.departmentLabel,
+          updatedBy: userId,
+        });
 
-      if (!payload.employeeName?.trim()) {
-        throw new Error(
-          `Row ${rowIndex}: Employee name is required before import.`
-        );
-      }
-
-      const identifier = payload.employeeName.trim();
-      let record = null;
-
-      if (identifier) {
-        const query = {
-          employeeName: new RegExp(`^${identifier}$`, "i"),
-        };
-
-        if (payload.departmentKey) {
-          query.departmentKey = payload.departmentKey;
+        if (!payload.employeeName?.trim()) {
+          throw new Error("Employee name is required before import.");
         }
 
-        record = await NewJoineePayroll.findOne(query);
-      }
+        const identifier = payload.employeeName.trim();
+        let record = null;
 
-      if (record) {
-        Object.assign(record, payload);
-        await record.save();
-      } else {
-        await NewJoineePayroll.create({
-          ...payload,
-          createdBy: userId,
-        });
+        if (identifier) {
+          const query = {
+            employeeName: new RegExp(`^${identifier}$`, "i"),
+          };
+
+          if (payload.departmentKey) {
+            query.departmentKey = payload.departmentKey;
+          }
+
+          record = await NewJoineePayroll.findOne(query);
+        }
+
+        if (record) {
+          Object.assign(record, payload);
+          await record.save();
+        } else {
+          await NewJoineePayroll.create({
+            ...payload,
+            createdBy: userId,
+          });
+        }
+      } catch (rowError) {
+        const message = rowError?.message || "Unable to process this row.";
+        throw new Error(
+          message.startsWith("Row ")
+            ? message
+            : `Row ${rowIndex}: ${message}`
+        );
       }
     }
+
+    await syncAllTARequirements();
 
     return res.status(200).json({
       success: true,

@@ -63,6 +63,10 @@ export default function NonPayrollTable({
                     className={`border-t border-slate-900/60 ${rowError ? 'bg-red-950/10 hover:bg-red-950/20' : 'hover:bg-slate-900/40'}`}
                   >
                     {columns.map((column) => {
+                      // Use formatted duration for display if available
+                      const displayValue = column.key === 'serviceDurationDays' && row.serviceDurationFormatted
+                        ? row.serviceDurationFormatted
+                        : row[column.key] ?? ''
                       const value = row[column.key] ?? ''
                       const fieldError = rowError?.fields?.[column.key]
                       const inputClasses = `${baseInputClasses} ${fieldError ? errorInputClasses : ''}`
@@ -112,7 +116,7 @@ export default function NonPayrollTable({
                       } else if (column.input === 'readonly') {
                         inputElement = (
                           <div className="rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm text-slate-200">
-                            {value === '' || value === null ? '—' : value}
+                            {displayValue === '' || displayValue === null ? '—' : displayValue}
                           </div>
                         )
                       } else if (column.input === 'date') {
@@ -148,10 +152,12 @@ export default function NonPayrollTable({
                         <td key={column.key} className="px-4 py-3 align-top">
                           {isReadOnly ? (
                             <div className="rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm text-slate-200">
-                              {value === '' || value === null ? '—' : value}
+                              {displayValue === '' || displayValue === null ? '—' : displayValue}
                             </div>
                           ) : (
-                            inputElement
+                            <div data-row-id={row._id} data-field={column.key}>
+                              {inputElement}
+                            </div>
                           )}
                           {fieldError ? (
                             <p className="mt-1 text-xs text-red-300">{fieldError}</p>

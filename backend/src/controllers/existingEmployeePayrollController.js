@@ -463,6 +463,7 @@ async function updateExistingEmployee(req, res) {
 async function deleteExistingEmployee(req, res) {
   try {
     const { id } = req.params;
+    const { role, department: userDepartment } = req.user;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
@@ -477,6 +478,18 @@ async function deleteExistingEmployee(req, res) {
       return res.status(404).json({
         success: false,
         message: "Payroll entry not found.",
+      });
+    }
+
+    if (
+      role === "HOD" &&
+      record.department &&
+      userDepartment &&
+      record.department.toString() !== userDepartment.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only delete entries from your department.",
       });
     }
 
@@ -504,13 +517,34 @@ async function uploadExistingEmployeesSheet(req, res) {
     }
 
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(req.file.buffer);
+    try {
+      await workbook.xlsx.load(req.file.buffer);
+    } catch (loadError) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Excel file format. Please ensure the file is a valid .xlsx file.",
+      });
+    }
+
+    if (!workbook.worksheets || workbook.worksheets.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Uploaded workbook has no worksheets. Please ensure the Excel file contains at least one sheet.",
+      });
+    }
 
     const worksheet = workbook.worksheets[0];
     if (!worksheet) {
       return res.status(400).json({
         success: false,
         message: "Uploaded workbook is empty.",
+      });
+    }
+
+    if (worksheet.rowCount < 2) {
+      return res.status(400).json({
+        success: false,
+        message: "Uploaded sheet has no data rows. Please ensure the sheet contains at least one data row after the header.",
       });
     }
 
