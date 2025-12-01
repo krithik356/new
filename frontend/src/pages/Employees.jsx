@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { apiClient, ApiError } from '../services/apiClient.js'
 import { useAuth } from '../providers/AuthProvider.jsx'
 import { useViewMode } from '../providers/ViewModeProvider.jsx'
+import SearchableSelect from '../components/SearchableSelect.jsx'
 
 export default function EmployeesPage() {
   const { token, user } = useAuth()
@@ -72,63 +73,92 @@ export default function EmployeesPage() {
   const departments = useMemo(() => {
     const unique = new Map()
     employees.forEach((employee) => {
-      const reference =
-        mode === 'source'
-          ? employee.department
-          : employee.currentDepartment ?? employee.department
-      const referenceId = getDepartmentId(reference)
-      if (!referenceId) {
-        return
+      // Collect all departments from both source and beneficiary
+      const sourceName = getSourceName(employee)
+      const beneficiaryName = getBeneficiaryName(employee)
+      const sourceId = getDepartmentId(employee.department)
+      const beneficiaryId = getDepartmentId(employee.currentDepartment ?? employee.department)
+
+      // Add source department
+      if (sourceId && sourceName && sourceName !== 'Unassigned') {
+        if (!unique.has(sourceId)) {
+          unique.set(sourceId, sourceName)
+        }
       }
-      const label =
-        mode === 'source'
-          ? getSourceName(employee)
-          : getBeneficiaryName(employee)
-      unique.set(referenceId, label)
+      
+      // Add beneficiary department
+      if (beneficiaryId && beneficiaryName && beneficiaryName !== 'Unassigned') {
+        if (!unique.has(beneficiaryId)) {
+          unique.set(beneficiaryId, beneficiaryName)
+        }
+      }
     })
     return Array.from(unique, ([id, name]) => ({ id, name })).sort((a, b) =>
       a.name.localeCompare(b.name)
     )
-  }, [employees, mode])
+  }, [employees])
 
   const filteredEmployees = useMemo(() => {
     const query = search.trim().toLowerCase()
 
     return employees.filter((employee) => {
+      // Search filter
       const matchesSearch =
         !query ||
         [employee.name, employee.email, employee.empId]
           .filter(Boolean)
           .some((value) => value.toLowerCase().includes(query))
 
-      const relevantDepartment =
-        mode === 'source'
-          ? employee.department
-          : employee.currentDepartment ?? employee.department
-      const matchesDepartment =
-        departmentFilter === 'all' ||
-        (relevantDepartment &&
-          getDepartmentId(relevantDepartment) === departmentFilter)
-
-      if (!matchesDepartment || !matchesSearch) {
+      if (!matchesSearch) {
         return false
       }
 
-      if (!isAdmin && user?.role === 'HOD' && hodDepartmentId) {
-        if (mode === 'source') {
-          return (
-            getDepartmentId(employee.department) === hodDepartmentId
-          )
+      // Get source and beneficiary department names
+      const sourceName = getSourceName(employee)
+      const beneficiaryName = getBeneficiaryName(employee)
+
+      // Determine which department to use based on mode
+      const relevantDepartmentName = mode === 'source' ? sourceName : beneficiaryName
+      const relevantDepartmentId = mode === 'source'
+        ? getDepartmentId(employee.department)
+        : getDepartmentId(employee.currentDepartment ?? employee.department)
+
+      // Department filter (for Admin)
+      if (isAdmin) {
+        if (departmentFilter !== 'all') {
+          // Find the selected department
+          const selectedDept = departments.find((d) => d.id === departmentFilter)
+          if (selectedDept) {
+            // Match by department name (more reliable than ID since we're using source/beneficiary names)
+            const matchesFilter = relevantDepartmentName === selectedDept.name
+            if (!matchesFilter) {
+              return false
+            }
+          } else {
+            // Fallback: if department not found in list, don't show employee
+            return false
+          }
         }
-        const workingId = getDepartmentId(
-          employee.currentDepartment ?? employee.department
-        )
-        return workingId === hodDepartmentId
+        return true
+      }
+
+      // HOD filtering
+      if (user?.role === 'HOD' && hodDepartmentId) {
+        if (mode === 'source') {
+          // Show employees hired by HOD's department
+          return getDepartmentId(employee.department) === hodDepartmentId
+        } else {
+          // Show employees working in HOD's department (beneficiary mode)
+          const workingDeptId = getDepartmentId(
+            employee.currentDepartment ?? employee.department
+          )
+          return workingDeptId === hodDepartmentId
+        }
       }
 
       return true
     })
-  }, [employees, search, departmentFilter, mode, isAdmin, user?.role, hodDepartmentId])
+  }, [employees, search, departmentFilter, mode, isAdmin, user?.role, hodDepartmentId, departments])
 
   const groupedEmployees = useMemo(() => {
     if (isAdmin) {
@@ -224,23 +254,20 @@ export default function EmployeesPage() {
         </div>
 
         {isAdmin && (
-          <div className="flex w-full flex-col gap-2 sm:w-64">
-            <label className="text-xs font-medium uppercase tracking-widest text-slate-500" htmlFor="department">
-              {departmentFilterLabel}
-            </label>
-            <select
+          <div className="flex w-full sm:w-64">
+            <SearchableSelect
               id="department"
+              label={departmentFilterLabel}
               value={departmentFilter}
-              onChange={(event) => setDepartmentFilter(event.target.value)}
-              className="w-full rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-2 text-sm text-slate-100 shadow-inner shadow-black/30 focus:border-emerald-400/80 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
-            >
-              <option value="all">All departments</option>
-              {departments.map((department) => (
-                <option key={department.id} value={department.id}>
-                  {department.name}
-                </option>
-              ))}
-            </select>
+              onChange={setDepartmentFilter}
+              options={departments}
+              placeholder="Select department..."
+              searchPlaceholder="Search departments..."
+              emptyLabel="No departments found"
+              includeAllOption
+              allOptionLabel="All departments"
+              allOptionValue="all"
+            />
           </div>
         )}
       </div>

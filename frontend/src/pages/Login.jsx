@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { useAuth } from '../providers/AuthProvider.jsx'
+import { API_BASE_URL } from '../services/apiClient.js'
 
 const EMPTY_FORM = { email: '', password: '' }
 
@@ -16,6 +17,28 @@ export default function LoginPage() {
       navigate('/', { replace: true })
     }
   }, [isAuthenticated, navigate])
+
+  useEffect(() => {
+    const controller = new AbortController()
+
+    async function warmBackend() {
+      try {
+        await fetch(`${API_BASE_URL}/api/health`, {
+          mode: 'cors',
+          cache: 'no-store',
+          signal: controller.signal,
+        })
+      } catch {
+        // It's okay if the warmup ping fails (offline, etc.) – login will retry.
+      }
+    }
+
+    warmBackend()
+
+    return () => {
+      controller.abort()
+    }
+  }, [])
 
   useEffect(() => {
     if (error) {

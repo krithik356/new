@@ -534,7 +534,7 @@ export default function DashboardPage() {
               value={loading ? '—' : contributionStats.totals.academy}
               helper="Sum across all contributions"
             />
-            {user?.role !== 'HOD' && (
+            {user?.role === 'Admin' && (
               <InsightCard
                 title="Departments"
                 value={loading ? '—' : departments.length || '—'}
@@ -542,7 +542,6 @@ export default function DashboardPage() {
               />
             )}
           </section>
-
           {user?.role === 'HOD' ? (
             <section className="rounded-3xl border border-slate-800/70 bg-slate-900/60 p-6 shadow-inner shadow-black/30">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -738,17 +737,4 @@ function SkeletonRows({ count }) {
     </div>
   )
 }
-
-function ActionItem({ title, description, href }) {
-  return (
-    <li className="rounded-2xl border border-slate-800/60 bg-slate-900/70 px-4 py-3">
-      <p className="font-semibold text-slate-100">{title}</p>
-      <p className="mt-1 text-xs text-slate-400">{description}</p>
-      <Link to={href} className="mt-3 inline-flex items-center text-xs font-semibold text-emerald-300 hover:text-emerald-200">
-        Go now →
-      </Link>
-    </li>
-  )
-}
-
 
