@@ -16,20 +16,6 @@ const router = Router();
 
 router.use(authenticate);
 
-// Helper to wrap async route handlers
-const asyncHandler = (fn) => (req, res, next) => {
-  Promise.resolve(fn(req, res)).catch((err) => {
-    console.error('Unhandled error in TA requirement route:', err);
-    if (!res.headersSent) {
-      return res.status(500).json({
-        success: false,
-        message: err.message || 'Internal server error',
-      });
-    }
-  });
-};
-
-// Specific routes should come before parameterized routes
 router.get(
   "/export",
   [
@@ -37,7 +23,7 @@ router.get(
     query("department").optional().isString().trim(),
     validateRequest,
   ],
-  asyncHandler(exportTARequirementSheet)
+  exportTARequirementSheet
 );
 
 router.post(
@@ -48,7 +34,7 @@ router.post(
     body("roles.*").optional().isString(),
     validateRequest,
   ],
-  asyncHandler(syncTARequirements)
+  syncTARequirements
 );
 
 router.get(
@@ -58,7 +44,7 @@ router.get(
     query("department").optional().isString().trim(),
     validateRequest,
   ],
-  asyncHandler(listTARequirements)
+  listTARequirements
 );
 
 router.post(
@@ -68,7 +54,7 @@ router.post(
     body("roleName").isString().trim().notEmpty(),
     validateRequest,
   ],
-  asyncHandler(createTARequirement)
+  createTARequirement
 );
 
 router.put(
@@ -78,7 +64,7 @@ router.put(
     param("id").isString().trim(),
     validateRequest,
   ],
-  asyncHandler(updateTARequirement)
+  updateTARequirement
 );
 
 router.delete(
@@ -88,7 +74,7 @@ router.delete(
     param("id").isString().trim(),
     validateRequest,
   ],
-  asyncHandler(deleteTARequirement)
+  deleteTARequirement
 );
 
 module.exports = router;

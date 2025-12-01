@@ -16,11 +16,12 @@ const COLUMN_DEFINITIONS = [
   { header: "WFO/WFH", key: "workMode" },
   { header: "Work Location", key: "workLocation" },
   { header: "Employment Type", key: "employmentType" },
+  { header: "Remarks", key: "remarks" },
+  { header: "CTC Range", key: "ctcRange" },
   { header: "Experience Range", key: "experienceRange" },
   { header: "New Type", key: "newType" },
   { header: "Replacement Employee Name", key: "replacementEmployeeName" },
   { header: "Product / Working Domain", key: "productOrDomain" },
-  { header: "C/L/H", key: "clh" },
   { header: "Asset Requirement", key: "assetRequirement" },
   { header: "Processor", key: "processor" },
   { header: "Operating System", key: "operatingSystem" },
@@ -39,7 +40,7 @@ const COLUMN_DEFINITIONS = [
   { header: "NIAT Batch 2", key: "niatBatch2" },
   { header: "NIAT Batch 3", key: "niatBatch3" },
   { header: "Others", key: "others" },
-  { header: "Comments", key: "comments" },
+  { header: "Common", key: "common" },
 ];
 
 function formatDate(value) {
