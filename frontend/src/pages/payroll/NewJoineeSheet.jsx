@@ -455,6 +455,11 @@ export default function NewJoineeSheet() {
   }
 
   const handleAddRow = () => {
+    console.log('Add Row button clicked')
+    // Automatically enable edit mode when adding a row (if user has permission)
+    if ((role === 'Admin' || role === 'HOD') && !editMode) {
+      setEditMode(true)
+    }
     const departmentKey =
       isAdmin && activeDepartment !== 'all' ? activeDepartment : ''
     const newRow = createEmptyRow(role, departmentKey)
@@ -462,7 +467,12 @@ export default function NewJoineeSheet() {
       newRow.departmentLabel =
         departmentKey.charAt(0).toUpperCase() + departmentKey.slice(1)
     }
-    setRows((prev) => [newRow, ...prev])
+    console.log('Adding new row:', newRow)
+    setRows((prev) => {
+      const updated = [newRow, ...prev]
+      console.log('Updated rows count:', updated.length)
+      return updated
+    })
   }
 
   const handleGenerateSheet = async () => {
@@ -657,12 +667,21 @@ export default function NewJoineeSheet() {
     }
     if (mode === 'source') {
       return rows.filter(
-        (row) => normalizeDepartment(row.sourceDepartment) === SALES_KEY
+        (row) => 
+          // Always show temporary (new) rows
+          row._id?.startsWith('temp-') ||
+          normalizeDepartment(row.sourceDepartment) === SALES_KEY
       )
     }
-    return rows.filter(
-      (row) => normalizeDepartment(row.beneficiaryDepartment) === SALES_KEY
-    )
+    if (mode === 'beneficiary') {
+      return rows.filter(
+        (row) => 
+          // Always show temporary (new) rows
+          row._id?.startsWith('temp-') ||
+          normalizeDepartment(row.beneficiaryDepartment) === SALES_KEY
+      )
+    }
+    return rows
   }, [isAdmin, isSalesListingMode, mode, rows])
 
   const salesFilterActive = isAdmin && isSalesListingMode && salesScopedRows.length > 0

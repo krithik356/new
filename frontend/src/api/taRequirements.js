@@ -84,5 +84,3 @@ export const TARequirementAPI = {
     return { success: true, filename }
   },
 }
-
-

@@ -60,8 +60,7 @@ export default function NewJoineeToolbar({
           <button
             type="button"
             onClick={onAddRow}
-            disabled={loading}
-            className="inline-flex items-center justify-center rounded-2xl border border-emerald-500/40 bg-emerald-500/15 px-4 py-2 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-500/20 hover:text-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center justify-center rounded-2xl border border-emerald-500/40 bg-emerald-500/15 px-4 py-2 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-500/20 hover:text-emerald-100"
           >
             + Add Row
           </button>

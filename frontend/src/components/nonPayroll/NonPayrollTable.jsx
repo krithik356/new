@@ -20,6 +20,9 @@ export default function NonPayrollTable({
   onDeleteRow,
   typeOptions,
   monthOptions,
+  departmentOptions,
+  hodOptions,
+  hodByTopDepartment,
 }) {
   return (
     <div className="overflow-hidden rounded-3xl border border-slate-800/70 bg-slate-950/80 shadow-2xl shadow-black/30">
@@ -107,6 +110,79 @@ export default function NonPayrollTable({
                           >
                             <option value="">Select month</option>
                             {monthOptions.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        )
+                      } else if (column.input === 'select-department') {
+                        const handleChange = (event) => {
+                          const newValue = event.target.value
+                          onFieldChange(row._id, column.key, newValue)
+                          const mappedHod = hodByTopDepartment?.[newValue]
+                          if (mappedHod) {
+                            if (column.key === 'responsibleDepartment') {
+                              onFieldChange(
+                                row._id,
+                                'responsibleDepartmentHod',
+                                mappedHod
+                              )
+                            }
+                            if (column.key === 'beneficiaryDepartment') {
+                              onFieldChange(
+                                row._id,
+                                'beneficiaryDepartmentHod',
+                                mappedHod
+                              )
+                            }
+                          }
+                        }
+
+                        inputElement = (
+                          <select
+                            value={value}
+                            onChange={handleChange}
+                            className={inputClasses}
+                          >
+                            <option value="">Select department</option>
+                            {departmentOptions.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        )
+                      } else if (column.input === 'select-hod') {
+                        let options = hodOptions
+                        if (column.key === 'responsibleDepartmentHod') {
+                          const mapped =
+                            hodByTopDepartment?.[row.responsibleDepartment]
+                          if (mapped) {
+                            options = [mapped]
+                          }
+                        } else if (column.key === 'beneficiaryDepartmentHod') {
+                          const mapped =
+                            hodByTopDepartment?.[row.beneficiaryDepartment]
+                          if (mapped) {
+                            options = [mapped]
+                          }
+                        }
+
+                        inputElement = (
+                          <select
+                            value={value}
+                            onChange={(event) =>
+                              onFieldChange(
+                                row._id,
+                                column.key,
+                                event.target.value
+                              )
+                            }
+                            className={inputClasses}
+                          >
+                            <option value="">Select HOD</option>
+                            {options.map((option) => (
                               <option key={option} value={option}>
                                 {option}
                               </option>

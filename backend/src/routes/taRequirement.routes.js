@@ -17,6 +17,27 @@ const router = Router();
 router.use(authenticate);
 
 router.get(
+  "/export",
+  [
+    authorizeRole("Admin", "HOD"),
+    query("department").optional().isString().trim(),
+    validateRequest,
+  ],
+  exportTARequirementSheet
+);
+
+router.post(
+  "/sync",
+  [
+    authorizeRole("Admin"),
+    body("roles").optional().isArray(),
+    body("roles.*").optional().isString(),
+    validateRequest,
+  ],
+  syncTARequirements
+);
+
+router.get(
   "/",
   [
     authorizeRole("Admin", "HOD"),
@@ -54,27 +75,6 @@ router.delete(
     validateRequest,
   ],
   deleteTARequirement
-);
-
-router.post(
-  "/sync",
-  [
-    authorizeRole("Admin"),
-    body("roles").optional().isArray(),
-    body("roles.*").optional().isString(),
-    validateRequest,
-  ],
-  syncTARequirements
-);
-
-router.get(
-  "/export",
-  [
-    authorizeRole("Admin", "HOD"),
-    query("department").optional().isString().trim(),
-    validateRequest,
-  ],
-  exportTARequirementSheet
 );
 
 module.exports = router;
