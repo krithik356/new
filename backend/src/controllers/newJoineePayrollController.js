@@ -13,7 +13,6 @@ const editableFields = [
   "employeeName",
   "doj",
   "doe",
-  "norm",
   "designation",
   "departmentLabel",
   "topDepartment",
@@ -56,7 +55,6 @@ const columnDefinitions = [
   { header: "EMP Name", key: "employeeName" },
   { header: "DOJ", key: "doj", isDate: true },
   { header: "DOE", key: "doe", isDate: true },
-  { header: "Norm", key: "norm" },
   { header: "Designation", key: "designation" },
   { header: "Department", key: "departmentLabel" },
   { header: "Top Department", key: "topDepartment" },
@@ -132,7 +130,9 @@ async function findDepartmentMetaFromLabel(label) {
 }
 
 async function resolveDepartmentContext({ role, userDepartment, payload }) {
-  if (role === "HOD") {
+  const isHodLike = role === "HOD" || role === "DataFiller";
+
+  if (isHodLike) {
     if (!userDepartment) {
       throw new Error("Department mapping missing for HOD user.");
     }
@@ -211,7 +211,14 @@ function toNumber(value) {
     return null;
   }
   const parsed = parseFloat(value);
-  return Number.isNaN(parsed) ? null : parsed;
+  if (Number.isNaN(parsed)) {
+    return null;
+  }
+  // Excel percentage-formatted cells provide decimals (e.g., 0.4 instead of 40%)
+  if (parsed > 0 && parsed <= 1 && !value.toString().includes("%")) {
+    return Number((parsed * 100).toFixed(2));
+  }
+  return parsed;
 }
 
 function ensurePercentageAllocation(payload) {
@@ -337,7 +344,7 @@ async function listNewJoinees(req, res) {
 
     const filter = {};
 
-    if (role === "HOD") {
+    if (role === "HOD" || role === "DataFiller") {
       if (!userDepartment) {
         return res.status(400).json({
           success: false,
@@ -383,7 +390,7 @@ async function exportNewJoineeSheet(req, res) {
 
     const filter = {};
 
-    if (role === "HOD") {
+    if (role === "HOD" || role === "DataFiller") {
       if (!userDepartment) {
         return res.status(400).json({
           success: false,
@@ -507,7 +514,7 @@ async function updateNewJoinee(req, res) {
             req.body.departmentLabel || req.body.departmentName || "",
         },
       });
-    } else if (role === "HOD") {
+    } else if (role === "HOD" || role === "DataFiller") {
       departmentMeta = await resolveDepartmentContext({
         role,
         userDepartment,

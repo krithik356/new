@@ -398,7 +398,7 @@ function buildPayloadFromBody(body, { partial = false } = {}) {
 async function listNonPayrollItems(req, res, next) {
   try {
     const filter = {};
-    if (req.user.role === "HOD") {
+    if (req.user.role === "HOD" || req.user.role === "DataFiller") {
       const departmentName = await resolveHodDepartmentName(req.user);
       filter.responsibleDepartment = departmentName;
     } else if (req.query.department) {
@@ -429,7 +429,7 @@ async function createNonPayrollItem(req, res, next) {
       });
     }
 
-    if (req.user.role === "HOD") {
+    if (req.user.role === "HOD" || req.user.role === "DataFiller") {
       payload.responsibleDepartment = await resolveHodDepartmentName(req.user);
     }
 
@@ -463,7 +463,7 @@ async function updateNonPayrollItem(req, res, next) {
     }
 
     let hodDepartmentName = null;
-    if (req.user.role === "HOD") {
+    if (req.user.role === "HOD" || req.user.role === "DataFiller") {
       hodDepartmentName = await resolveHodDepartmentName(req.user);
       if (existing.responsibleDepartment !== hodDepartmentName) {
         return res.status(403).json({
@@ -485,7 +485,7 @@ async function updateNonPayrollItem(req, res, next) {
       });
     }
 
-    if (req.user.role === "HOD") {
+    if (req.user.role === "HOD" || req.user.role === "DataFiller") {
       payload.responsibleDepartment = hodDepartmentName ?? existing.responsibleDepartment;
     } else if (payload.responsibleDepartment === undefined) {
       payload.responsibleDepartment = existing.responsibleDepartment;
@@ -563,7 +563,7 @@ async function deleteNonPayrollItem(req, res, next) {
 async function exportNonPayrollItems(req, res, next) {
   try {
     const filter = {};
-    if (req.user.role === "HOD") {
+    if (req.user.role === "HOD" || req.user.role === "DataFiller") {
       const departmentName = await resolveHodDepartmentName(req.user);
       filter.responsibleDepartment = departmentName;
     } else if (req.query.department) {

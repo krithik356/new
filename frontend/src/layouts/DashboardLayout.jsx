@@ -12,8 +12,8 @@ const MODE_OPTIONS = [
 const navigation = [
   { to: '/', label: 'Overview', roles: ['Admin', 'HOD'] },
   { to: '/employees', label: 'Employees', roles: ['Admin', 'HOD'] },
-  { to: '/payroll', label: 'Payroll', roles: ['Admin', 'HOD'] },
-  { to: '/non-payroll', label: 'Non-Payroll', roles: ['Admin', 'HOD'] },
+  { to: '/payroll', label: 'Payroll', roles: ['Admin', 'HOD', 'DataFiller'] },
+  { to: '/non-payroll', label: 'Non-Payroll', roles: ['Admin', 'HOD', 'DataFiller'] },
   { to: '/departments', label: 'Departments', roles: ['Admin'] },
 ]
 

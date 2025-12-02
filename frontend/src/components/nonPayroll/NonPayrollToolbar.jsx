@@ -58,7 +58,7 @@ export default function NonPayrollToolbar({
             type="button"
             onClick={onAddRow}
             disabled={loading}
-            className="inline-flex items-center justify-center rounded-2xl border border-emerald-500/40 bg-emerald-500/15 px-4 py-2 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-500/20 hover:text-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center justify-center rounded-2xl border border-emerald-500/40 bg-emerald-500/15 px-4 py-1 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-500/20 hover:text-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
             + Add Row
           </button>
@@ -66,7 +66,7 @@ export default function NonPayrollToolbar({
             type="button"
             onClick={onGenerateSheet}
             disabled={loading || exporting}
-            className="inline-flex items-center justify-center rounded-2xl border border-cyan-400/50 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-200 transition hover:bg-cyan-500/20 hover:text-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center justify-center rounded-2xl border border-cyan-400/50 bg-cyan-500/10 px-4 py-1.5 text-sm font-semibold text-cyan-200 transition hover:bg-cyan-500/20 hover:text-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {exporting ? 'Generating…' : 'Generate Sheet'}
           </button>
@@ -74,7 +74,7 @@ export default function NonPayrollToolbar({
             type="button"
             onClick={onUploadClick}
             disabled={loading || uploading}
-            className="inline-flex items-center justify-center rounded-2xl border border-blue-400/50 bg-blue-500/10 px-4 py-2 text-sm font-semibold text-blue-200 transition hover:bg-blue-500/20 hover:text-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center justify-center rounded-2xl border border-blue-400/50 bg-blue-500/10 px-4 py-1.5 text-sm font-semibold text-blue-200 transition hover:bg-blue-500/20 hover:text-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {uploading ? 'Uploading…' : 'Upload Sheet'}
           </button>

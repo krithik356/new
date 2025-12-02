@@ -15,37 +15,37 @@ router.use(authenticate);
 
 router.get(
   "/export",
-  authorizeRole("Admin", "HOD"),
+  authorizeRole("Admin", "HOD", "DataFiller"),
   (req, res, next) => nonPayrollController.exportNonPayrollItems(req, res, next)
 );
 
 router.get(
   "/",
-  authorizeRole("Admin", "HOD"),
+  authorizeRole("Admin", "HOD", "DataFiller"),
   (req, res, next) => nonPayrollController.listNonPayrollItems(req, res, next)
 );
 
 router.post(
   "/",
-  authorizeRole("Admin", "HOD"),
+  authorizeRole("Admin", "HOD", "DataFiller"),
   (req, res, next) => nonPayrollController.createNonPayrollItem(req, res, next)
 );
 
 router.put(
   "/:id",
-  authorizeRole("Admin", "HOD"),
+  authorizeRole("Admin", "HOD", "DataFiller"),
   (req, res, next) => nonPayrollController.updateNonPayrollItem(req, res, next)
 );
 
 router.delete(
   "/:id",
-  authorizeRole("Admin", "HOD"),
+  authorizeRole("Admin", "HOD", "DataFiller"),
   (req, res, next) => nonPayrollController.deleteNonPayrollItem(req, res, next)
 );
 
 router.post(
   "/upload",
-  authorizeRole("Admin", "HOD"),
+  authorizeRole("Admin", "HOD", "DataFiller"),
   upload.single("file"),
   (req, res, next) => nonPayrollController.uploadNonPayrollItems(req, res, next)
 );

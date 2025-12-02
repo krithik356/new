@@ -52,7 +52,7 @@ function App() {
           <Route index element={<DashboardPage />} />
           <Route path="employees" element={<AdminOrHodRoute><EmployeesPage /></AdminOrHodRoute>} />
           <Route path="payroll" element={<PayrollPage />} />
-          <Route path="non-payroll" element={<AdminOrHodRoute><NonPayrollPage /></AdminOrHodRoute>} />
+          <Route path="non-payroll" element={<NonPayrollPage />} />
           <Route path="departments" element={<AdminOnlyRoute><DepartmentsPage /></AdminOnlyRoute>} />
         </Route>
       </Route>

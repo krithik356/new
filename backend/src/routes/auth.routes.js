@@ -43,7 +43,7 @@ router.post(
     body("password")
       .isLength({ min: 6 })
       .withMessage("Password must be at least 6 characters."),
-    body("role").isIn(["Admin", "HOD"]).withMessage("Invalid role."),
+    body("role").isIn(["Admin", "HOD", "DataFiller"]).withMessage("Invalid role."),
     body("department")
       .optional()
       .isMongoId()

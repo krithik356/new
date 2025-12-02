@@ -387,24 +387,28 @@ export default function ExistingEmployeesSheet() {
     event.target.value = ''
   }
 
+  const isSalesListingMode =
+    isAdmin && (mode === 'source' || mode === 'beneficiary')
+
   const salesScopedRows = useMemo(() => {
+    if (!isAdmin || !isSalesListingMode) {
+      return rows
+    }
     if (mode === 'source') {
       return rows.filter(
         (row) => normalizeDepartment(row.sourceDepartment) === SALES_KEY
       )
     }
-    if (mode === 'beneficiary') {
-      return rows.filter(
-        (row) => normalizeDepartment(row.beneficiaryDepartment) === SALES_KEY
-      )
-    }
-    return rows
-  }, [mode, rows])
+    return rows.filter(
+      (row) => normalizeDepartment(row.beneficiaryDepartment) === SALES_KEY
+    )
+  }, [isAdmin, isSalesListingMode, mode, rows])
 
-  const isSalesListingMode = mode === 'source' || mode === 'beneficiary'
-  const salesFilterActive = isSalesListingMode && salesScopedRows.length > 0
+  const salesFilterActive = isAdmin && isSalesListingMode && salesScopedRows.length > 0
   const visibleRows =
-    salesFilterActive || !isSalesListingMode ? salesScopedRows : rows
+    isAdmin && (salesFilterActive || !isSalesListingMode)
+      ? salesScopedRows
+      : rows
 
   const sheetDescription = useMemo(() => {
     const baseDescription = isAdmin
@@ -412,7 +416,7 @@ export default function ExistingEmployeesSheet() {
         ? 'Viewing all departments.'
         : `Filtering existing employees for ${activeDepartment.toUpperCase()}.`
       : 'HOD view always scopes to your department.'
-    if (salesFilterActive) {
+    if (isAdmin && salesFilterActive) {
       const listingLabel =
         mode === 'source' ? 'Source: Sales listing' : 'Beneficiary: Sales listing'
       return `${baseDescription} Showing ${listingLabel}.`

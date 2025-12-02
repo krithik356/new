@@ -94,7 +94,9 @@ async function findDepartmentMetaFromLabel(label) {
 }
 
 async function resolveDepartmentContext({ role, userDepartment, payload }) {
-  if (role === "HOD") {
+  const isHodLike = role === "HOD" || role === "DataFiller";
+
+  if (isHodLike) {
     if (!userDepartment) {
       throw new Error("Department mapping missing for HOD user.");
     }
@@ -265,7 +267,7 @@ async function listExistingEmployees(req, res) {
 
     const filter = {};
 
-    if (role === "HOD") {
+    if (role === "HOD" || role === "DataFiller") {
       if (!userDepartment) {
         return res.status(400).json({
           success: false,
@@ -302,7 +304,7 @@ async function exportExistingEmployees(req, res) {
 
     const filter = {};
 
-    if (role === "HOD") {
+    if (role === "HOD" || role === "DataFiller") {
       if (!userDepartment) {
         return res.status(400).json({
           success: false,

@@ -24,7 +24,7 @@ router.use(authenticate);
 router.get(
   "/",
   [
-    authorizeRole("Admin", "HOD"),
+    authorizeRole("Admin", "HOD", "DataFiller"),
     query("department").optional().isString().trim(),
     validateRequest,
   ],
@@ -34,7 +34,7 @@ router.get(
 router.get(
   "/export",
   [
-    authorizeRole("Admin", "HOD"),
+    authorizeRole("Admin", "HOD", "DataFiller"),
     query("department").optional().isString().trim(),
     validateRequest,
   ],
@@ -52,7 +52,7 @@ const sharedFieldValidators = [
 router.post(
   "/",
   [
-    authorizeRole("Admin", "HOD"),
+    authorizeRole("Admin", "HOD", "DataFiller"),
     body("empName")
       .isString()
       .withMessage("Employee name is required.")
@@ -67,7 +67,7 @@ router.post(
 router.put(
   "/:id",
   [
-    authorizeRole("Admin", "HOD"),
+    authorizeRole("Admin", "HOD", "DataFiller"),
     param("id").isString().trim(),
     body("empName").optional().isString().trim().notEmpty(),
     ...sharedFieldValidators,
@@ -79,7 +79,7 @@ router.put(
 router.delete(
   "/:id",
   [
-    authorizeRole("Admin", "HOD"),
+    authorizeRole("Admin", "HOD", "DataFiller"),
     param("id").isString().trim(),
     validateRequest,
   ],
@@ -88,7 +88,7 @@ router.delete(
 
 router.post(
   "/upload",
-  [authorizeRole("Admin", "HOD"), upload.single("file")],
+  [authorizeRole("Admin", "HOD", "DataFiller"), upload.single("file")],
   uploadExistingEmployeesSheet
 );
 

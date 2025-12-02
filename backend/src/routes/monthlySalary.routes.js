@@ -13,7 +13,7 @@ router.get(
   "/",
   [
     authenticate,
-    authorizeRole("Admin", "HOD"),
+    authorizeRole("Admin", "HOD", "DataFiller"),
     query("month")
       .exists()
       .withMessage("Month is required.")

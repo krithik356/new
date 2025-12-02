@@ -3,12 +3,26 @@ const mongoose = require("mongoose");
 const { User } = require("../models/User");
 const { signToken } = require("../config/jwt");
 
+/**
+ * Number of salt rounds for bcrypt password hashing
+ * Higher values = more secure but slower
+ * Default: 10 (good balance between security and performance)
+ */
 const SALT_ROUNDS = Number(process.env.BCRYPT_SALT_ROUNDS || 10);
 
+/**
+ * Handles user login authentication
+ * Validates credentials and returns a JWT token upon successful authentication
+ * 
+ * @param {object} req - Express request object containing email and password in body
+ * @param {object} res - Express response object
+ * @param {function} next - Express next middleware function
+ */
 async function login(req, res, next) {
   try {
     const { email, password } = req.body;
 
+    // Validate required fields
     if (!email || !password) {
       return res.status(400).json({
         success: false,
@@ -16,14 +30,16 @@ async function login(req, res, next) {
       });
     }
 
-    // Normalize email to lowercase (matching User model schema)
+    // Normalize email to lowercase to match User model schema
     const normalizedEmail = email.trim().toLowerCase();
 
+    // Find user by email and populate department information
     const user = await User.findOne({ email: normalizedEmail }).populate(
       "department",
       "name code"
     );
 
+    // Check if user exists
     if (!user) {
       // Log for debugging (remove in production if needed)
       console.log(`[Login] User not found for email: ${normalizedEmail}`);
@@ -33,9 +49,10 @@ async function login(req, res, next) {
       });
     }
 
-    const passwordMatch = await user.comparePassword(password);
+    // Verify password using bcrypt comparison
+    const isPasswordValid = await user.comparePassword(password);
 
-    if (!passwordMatch) {
+    if (!isPasswordValid) {
       // Log for debugging (remove in production if needed)
       console.log(`[Login] Password mismatch for user: ${user.email}`);
       return res.status(401).json({
@@ -44,24 +61,31 @@ async function login(req, res, next) {
       });
     }
 
-    // Ensure role is exactly "Admin" or "HOD" (case-sensitive)
-    const userRole = user.role === "Admin" ? "Admin" : user.role === "HOD" ? "HOD" : user.role;
+    // Normalize role to ensure case-sensitive matching (Admin or HOD)
+    const normalizedRole = 
+      user.role === "Admin" 
+        ? "Admin" 
+        : user.role === "HOD" 
+        ? "HOD" 
+        : user.role;
 
-    const token = signToken({
+    // Generate JWT token with user information
+    const authToken = signToken({
       id: user.id,
-      role: userRole,
+      role: normalizedRole,
       department: user.department ? user.department._id : null,
     });
 
+    // Return success response with token and user data
     return res.json({
       success: true,
       data: {
-        token,
+        token: authToken,
         user: {
           id: user.id,
           name: user.name,
           email: user.email,
-          role: userRole,
+          role: normalizedRole,
           department: user.department
             ? {
                 id: user.department.id,
@@ -77,10 +101,19 @@ async function login(req, res, next) {
   }
 }
 
+/**
+ * Creates a new user account (admin-only operation)
+ * Hashes password and assigns department if role requires it
+ * 
+ * @param {object} req - Express request object containing user data in body
+ * @param {object} res - Express response object
+ * @param {function} next - Express next middleware function
+ */
 async function createUser(req, res, next) {
   try {
     const { name, email, password, role, department } = req.body;
 
+    // Validate required fields
     if (!name || !email || !password || !role) {
       return res.status(400).json({
         success: false,
@@ -88,32 +121,41 @@ async function createUser(req, res, next) {
       });
     }
 
-    const existing = await User.findOne({ email });
-    if (existing) {
+    // Check if email is already registered
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
       return res.status(409).json({
         success: false,
         message: "Email already in use.",
       });
     }
 
-    const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+    // Hash password before storing
+    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
-    const user = await User.create({
+    // Determine if department should be assigned
+    // Only HOD and DataFiller roles require department assignment
+    const shouldAssignDepartment = 
+      (role === "HOD" || role === "DataFiller") && department;
+
+    // Create new user
+    const newUser = await User.create({
       name,
       email,
-      passwordHash,
+      passwordHash: hashedPassword,
       role,
-      department: role === "HOD" ? department : null,
+      department: shouldAssignDepartment ? department : null,
     });
 
+    // Return created user (password hash is automatically excluded by model)
     return res.status(201).json({
       success: true,
       data: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        department: user.department,
+        id: newUser.id,
+        name: newUser.name,
+        email: newUser.email,
+        role: newUser.role,
+        department: newUser.department,
       },
     });
   } catch (error) {
@@ -132,9 +174,10 @@ async function signup(req, res, next) {
       });
     }
 
-    const validRole = role === "Admin" ? "Admin" : "HOD";
+    const validRole =
+      role === "Admin" ? "Admin" : role === "DataFiller" ? "DataFiller" : "HOD";
 
-    if (validRole === "HOD" && !department) {
+    if ((validRole === "HOD" || validRole === "DataFiller") && !department) {
       return res.status(400).json({
         success: false,
         message: "Department is required for HOD role.",
@@ -176,14 +219,17 @@ async function signup(req, res, next) {
       email,
       passwordHash,
       role: validRole,
-      department: validRole === "HOD" && department ? department : null,
+      department:
+        (validRole === "HOD" || validRole === "DataFiller") && department
+          ? department
+          : null,
     });
 
     // Populate department for response
     const populatedUser = await User.findById(user.id).populate("department", "name code");
 
     // Verify department was saved correctly
-    if (validRole === "HOD" && department && !populatedUser.department) {
+    if ((validRole === "HOD" || validRole === "DataFiller") && department && !populatedUser.department) {
       console.error("Warning: Department not found after creation", {
         userId: user.id,
         departmentId: department,
@@ -193,7 +239,9 @@ async function signup(req, res, next) {
     const token = signToken({
       id: populatedUser.id,
       role: populatedUser.role,
-      department: populatedUser.department ? populatedUser.department._id.toString() : null,
+      department: populatedUser.department
+        ? populatedUser.department._id.toString()
+        : null,
     });
 
     return res.status(201).json({
@@ -214,9 +262,11 @@ async function signup(req, res, next) {
             : null,
         },
       },
-      message: validRole === "HOD" && populatedUser.department
+      message:
+        (validRole === "HOD" || validRole === "DataFiller") &&
+        populatedUser.department
         ? `Account created successfully. You are assigned to ${populatedUser.department.name}${populatedUser.department.code ? ` (${populatedUser.department.code})` : ''}. You can now manage your department's contributions.`
-        : validRole === "HOD"
+        : validRole === "HOD" || validRole === "DataFiller"
         ? "Account created successfully. You can now manage your department's contributions."
         : "Account created successfully.",
     });
@@ -246,8 +296,8 @@ async function updateUserDepartment(req, res, next) {
       });
     }
 
-    // Only allow updating department for HOD users
-    if (user.role !== "HOD") {
+    // Only allow updating department for HOD or DataFiller users
+    if (user.role !== "HOD" && user.role !== "DataFiller") {
       return res.status(400).json({
         success: false,
         message: "Department can only be assigned to HOD users.",

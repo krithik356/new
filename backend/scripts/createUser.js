@@ -9,7 +9,7 @@ require("dotenv").config({
 const { connectDB, disconnectDB } = require("../src/config/db");
 const { User } = require("../src/models/User");
 
-const ROLES = ["Admin", "HOD"];
+const ROLES = ["Admin", "HOD", "DataFiller"];
 
 function parseArgs(argv) {
   const args = {};
@@ -34,7 +34,7 @@ async function main() {
 
   if (!name || !email || !password) {
     console.error(
-      "Usage: npm run create-user -- --name=\"Full Name\" --email=user@example.com --password=Secret123 [--role=Admin|HOD] [--department=<departmentId>]"
+      "Usage: npm run create-user -- --name=\"Full Name\" --email=user@example.com --password=Secret123 [--role=Admin|HOD|DataFiller] [--department=<departmentId>]"
     );
     process.exit(1);
   }
@@ -44,8 +44,8 @@ async function main() {
     process.exit(1);
   }
 
-  if (role === "HOD" && !department) {
-    console.error("HOD accounts require a --department=<departmentId> value.");
+  if ((role === "HOD" || role === "DataFiller") && !department) {
+    console.error(`${role} accounts require a --department=<departmentId> value.`);
     process.exit(1);
   }
 
@@ -68,7 +68,7 @@ async function main() {
       email,
       passwordHash,
       role,
-      department: role === "HOD" ? department : null,
+      department: role === "HOD" || role === "DataFiller" ? department : null,
     });
 
     console.log("✅ User created successfully:");

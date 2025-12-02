@@ -4,7 +4,6 @@ const COLUMN_DEFINITIONS = [
   { header: "EMP Name", key: "employeeName" },
   { header: "DOJ", key: "doj" },
   { header: "DOE", key: "doe" },
-  { header: "Norm", key: "norm" },
   { header: "Designation", key: "designation" },
   { header: "Department", key: "departmentLabel" },
   { header: "Top Department", key: "topDepartment" },
@@ -89,7 +88,13 @@ async function buildNewJoineeWorkbook(records = []) {
     });
   }
 
-  sheet.getRow(1).font = { bold: true };
+  // Make the header row (first row) bold
+  const headerRow = sheet.getRow(1);
+  headerRow.font = { bold: true };
+  // Also style each cell individually to ensure bold formatting is applied
+  headerRow.eachCell((cell) => {
+    cell.font = { bold: true };
+  });
 
   return workbook;
 }

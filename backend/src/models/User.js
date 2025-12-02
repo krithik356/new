@@ -3,7 +3,7 @@ const bcrypt = require("bcrypt");
 
 const { Schema } = mongoose;
 
-const roles = ["Admin", "HOD"];
+const roles = ["Admin", "HOD", "DataFiller"];
 
 const UserSchema = new Schema(
   {

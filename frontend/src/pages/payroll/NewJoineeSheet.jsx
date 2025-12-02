@@ -13,7 +13,6 @@ const COLUMN_DEFINITIONS = [
   { key: 'employeeName', label: 'EMP Name', width: '200px' },
   { key: 'doj', label: 'DOJ', width: '140px' },
   { key: 'doe', label: 'DOE', width: '140px' },
-  { key: 'norm', label: 'Norm', width: '140px' },
   { key: 'designation', label: 'Designation', width: '180px' },
   { key: 'departmentLabel', label: 'Department', width: '180px' },
   { key: 'topDepartment', label: 'Top Department', width: '180px' },
@@ -123,7 +122,14 @@ const parsePercentageValue = (value) => {
     return null
   }
   const parsed = parseFloat(value)
-  return Number.isNaN(parsed) ? null : parsed
+  if (Number.isNaN(parsed)) {
+    return null
+  }
+  // Support both whole percentages (40) and Excel-style decimals (0.4)
+  if (parsed > 0 && parsed <= 1 && !value.toString().includes('%')) {
+    return Number((parsed * 100).toFixed(2))
+  }
+  return parsed
 }
 
 const validatePercentageRow = (row) => {
@@ -204,6 +210,7 @@ export default function NewJoineeSheet() {
   const [taRowErrors, setTaRowErrors] = useState({})
   const [taExporting, setTaExporting] = useState(false)
   const [taEditMode, setTaEditMode] = useState(false)
+  const [actionToast, setActionToast] = useState(null)
   const isMountedRef = useRef(true)
   const fileInputRef = useRef(null)
 
@@ -394,7 +401,14 @@ export default function NewJoineeSheet() {
         return next
       })
       showTransientMessage(setSuccessMessage, 'Sheet updated successfully.')
+      showTransientMessage(
+        setActionToast,
+        row._id.startsWith('temp-')
+          ? 'Row added successfully.'
+          : 'Row updated successfully.'
+      )
       await loadTaRequirements()
+      showTransientMessage(setActionToast, 'Row deleted successfully.')
     } catch (err) {
       console.error('Failed to save entry', err)
       const message =
@@ -429,6 +443,7 @@ export default function NewJoineeSheet() {
         return next
       })
       await loadTaRequirements()
+      showTransientMessage(setActionToast, 'Row deleted successfully.')
     } catch (err) {
       console.error('Failed to delete entry', err)
       const message =
@@ -559,6 +574,12 @@ export default function NewJoineeSheet() {
         return next
       })
       showTransientMessage(setTaSuccessMessage, 'TA sheet updated successfully.')
+      showTransientMessage(
+        setActionToast,
+        row._id.startsWith('temp-')
+          ? 'TA requirement added successfully.'
+          : 'TA requirement updated successfully.'
+      )
     } catch (err) {
       console.error('Failed to save TA requirement entry', err)
       const message =
@@ -580,6 +601,7 @@ export default function NewJoineeSheet() {
         delete next[row._id]
         return next
       })
+      showTransientMessage(setActionToast, 'TA requirement deleted successfully.')
       return
     }
 
@@ -592,6 +614,7 @@ export default function NewJoineeSheet() {
         delete next[row._id]
         return next
       })
+      showTransientMessage(setActionToast, 'TA requirement deleted successfully.')
     } catch (err) {
       console.error('Failed to delete TA requirement entry', err)
       const message =
@@ -625,43 +648,49 @@ export default function NewJoineeSheet() {
     }
   }
 
+  const isSalesListingMode =
+    isAdmin && (mode === 'source' || mode === 'beneficiary')
+
   const salesScopedRows = useMemo(() => {
+    if (!isAdmin || !isSalesListingMode) {
+      return rows
+    }
     if (mode === 'source') {
       return rows.filter(
         (row) => normalizeDepartment(row.sourceDepartment) === SALES_KEY
       )
     }
-    if (mode === 'beneficiary') {
-      return rows.filter(
-        (row) => normalizeDepartment(row.beneficiaryDepartment) === SALES_KEY
-      )
-    }
-    return rows
-  }, [mode, rows])
+    return rows.filter(
+      (row) => normalizeDepartment(row.beneficiaryDepartment) === SALES_KEY
+    )
+  }, [isAdmin, isSalesListingMode, mode, rows])
 
-  const isSalesListingMode = mode === 'source' || mode === 'beneficiary'
-  const salesFilterActive = isSalesListingMode && salesScopedRows.length > 0
+  const salesFilterActive = isAdmin && isSalesListingMode && salesScopedRows.length > 0
   const visibleRows =
-    salesFilterActive || !isSalesListingMode ? salesScopedRows : rows
+    isAdmin && (salesFilterActive || !isSalesListingMode)
+      ? salesScopedRows
+      : rows
 
   const taScopedRows = useMemo(() => {
+    if (!isAdmin || !isSalesListingMode) {
+      return taRows
+    }
     if (mode === 'source') {
       return taRows.filter((row) =>
         (row.sourceDepartmentKeys ?? []).includes(SALES_KEY)
       )
     }
-    if (mode === 'beneficiary') {
-      return taRows.filter((row) =>
-        (row.beneficiaryDepartmentKeys ?? []).includes(SALES_KEY)
-      )
-    }
-    return taRows
-  }, [mode, taRows])
+    return taRows.filter((row) =>
+      (row.beneficiaryDepartmentKeys ?? []).includes(SALES_KEY)
+    )
+  }, [isAdmin, isSalesListingMode, mode, taRows])
 
   const taSalesFilterActive =
-    isSalesListingMode && taScopedRows.length > 0
+    isAdmin && isSalesListingMode && taScopedRows.length > 0
   const visibleTaRows =
-    taSalesFilterActive || !isSalesListingMode ? taScopedRows : taRows
+    isAdmin && (taSalesFilterActive || !isSalesListingMode)
+      ? taScopedRows
+      : taRows
 
   const sheetDescription = useMemo(() => {
     if (isAdmin) {
@@ -677,7 +706,7 @@ export default function NewJoineeSheet() {
       return baseDescription
     }
     const baseScoped = 'HOD view always scopes to your department.'
-    if (salesFilterActive) {
+    if (isAdmin && salesFilterActive) {
       const listingLabel =
         mode === 'source' ? 'Source: Sales listing' : 'Beneficiary: Sales listing'
       return `${baseScoped} Showing ${listingLabel}.`
@@ -815,6 +844,11 @@ export default function NewJoineeSheet() {
           onDeleteRow={handleTaDeleteRow}
         />
       </section>
+      {actionToast ? (
+        <div className="fixed bottom-6 right-6 z-50 rounded-2xl border border-emerald-400/40 bg-slate-900/80 px-4 py-3 text-sm font-semibold text-emerald-100 shadow-xl backdrop-blur">
+          {actionToast}
+        </div>
+      ) : null}
     </section>
   )
 }
