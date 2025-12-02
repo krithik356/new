@@ -4,203 +4,6 @@ const MAX_INPUT_WIDTH = 640
 const CHAR_PIXEL_WIDTH = 9
 const EXTRA_PADDING = 32
 
-const DEPARTMENTS_BY_TOP_DEPARTMENT = {
-  '10xIIT': ['10xIIT (NWD_10XIIT)'],
-  'Academy Student Success': [
-    'AC_Customer Support (NWD_ASS_ACCS)',
-    'Central Team- Academy Student Success (NWD_ASS_CT)',
-    'IN_Customer Support (NWD_ASS_IN_CS)',
-    'Payments Retention Team (NWD_ASS_PYRT)',
-    'Placement Preparation (NWD_ASS_PP)',
-    'Pre-Onboarding (Pre-Onboarding_NWD_ASS_PO)',
-    'Student Engagement (NWD_ASS_SE)',
-    'Success Coach (NWD_ASS_SC)',
-  ],
-  'AS - Program Registration Expert': [
-    'AS - Program Registration Expert (NWD_BU_AS_PRE)',
-    'NIAT_Offline Lead Generation (NWD_AS_PRE_NIAT_OLG)',
-  ],
-  'B2B Partnership': ['B2B Partnership (NWD_B2BP)'],
-  'Brand Marketing': [
-    'Brand Marketing (NWD_BM)',
-    'Content Marketing (NWD__BM_CM)',
-  ],
-  'Business Operations': [
-    'Business Operations (NWD_BO)',
-    'Pre Sales (NWD_BO_PS)',
-  ],
-  'CD - Curriculum Development': [
-    'CD - Curriculum Development (NWD_CD_CD)',
-    'CD - Curriculum Development (NWD_TEC_CUD)',
-  ],
-  'Content and Curriculum Development: Aptitude, English and Assessments': [
-    'Assessment Content and Ops (NWD_CCD_AC_Ops)',
-    'Curriculum Development: Aptitude (NWD_CCD_CD_A)',
-    'Curriculum Development: English (NWD_CCD_CD_E)',
-  ],
-  'Content Development': [
-    'Content Development (NWD_CD)',
-    'DSA (NWD_CD_DSA)',
-  ],
-  CT: ['CT (NWD_CT)'],
-  'Data Science and Machine Learning': [
-    'CD - Content Development (NWD_DSML_CDCD)',
-    'Content Development- DSML (NWD_CD_DSML)',
-    'Data Science and Machine Learning (NWD_DSML)',
-    'NIAT_Master Class (NWD_DSML_NIAT_MC)',
-  ],
-  'Design Studio': [
-    'Design Studio (NWD_DS)',
-    'Graphic Design (NWD_DS_GD)',
-    'Product Design (NWD_DS_PD)',
-  ],
-  'Finance & Legal': [
-    'Finance (NWD_F&L_FIN)',
-    'FP&A (NWD_F&L_FP&A)',
-    'Legal (NWD_F&L_LE)',
-    'Legal (NWD_L)',
-  ],
-  "Founder's Office": [
-    'Control Tower (NWD_FO_CT)',
-    "Founder's Office (NWD_FO)",
-  ],
-  'GenAI Social Media': ['GenAI Social Media (NWD_GAISM)'],
-  'HR - Human Resources': [
-    'HR - Admin (NWD_HR_ADM)',
-    'HR - HRBP (NWD_HRBP)',
-    'HR - Human Resources (NWD_HR)',
-    'HR - Learning & Development (NWD_HR_L&D)',
-    'HR - Operations (NWD_HR_OPS)',
-    'HR - Payroll And Compliance (NWD_HR_P&C)',
-    'HR - Systems (NWD_HR_HRS)',
-    'PO - Procurement (NWD_HR_PO)',
-  ],
-  'HR - Talent Acquisition': ['HR - Talent Acquisition (NWD_HR_TA)'],
-  'Intensive Student Success': [
-    'College Plus Student Success (NWD_ISS_CPSS)',
-    'Intensive Student Success (Intensive Student Success_NWD_ISS_Int_SS)',
-    'Intensive Student Success (NWD_ISS_Int_SS)',
-    'Intensive Student Success (NWD_ISS)',
-    'PC - Positive Community Building (NWD_PC_PCB)',
-  ],
-  'Internal Audit': [
-    'Business Process Excellence & Assurance (NWD_IA_BPE&A)',
-    'Financial Audit (NWD_IA_FA)',
-    'Internal Audit (NWD_IA)',
-    'Sales Quality & Compliance Audit (NWD_IA_SQ&CA)',
-  ],
-  'NIAT Hostel Facilities Team': ['NIAT Hostel Facilities Team (NWD_NIAT_HFT)'],
-  NIAT_Academics: [
-    'NIAT_CRM & Data (NWD_NIAT_AC_CRM&D)',
-    'NIAT_Instructors (NWD_NIAT_AC_IN)',
-    'NIAT_Instructors & Mentors (NWD_NIAT_AC_I&M)',
-    'NIAT_Instructors_Aptitude & English (NWD_NIAT_AC_I_A&E)',
-    'NIAT_Instructors_DSA (NWD_NIAT_AC_DSA)',
-    'NIAT_Maths Instructors and Mentors (NWD_NIAT_MIM)',
-    'NIAT_Product (NWD_NIAT_AC_PRO)',
-    'NIAT_Program Operations (NWD_NIAT_AC_PO)',
-    'NIAT_Robotics (NWD_NIAT_AC_R)',
-    'NIAT_Student Engagement (NWD_NIAT_AC_SE)',
-    'NIAT_Student Success (NWD_NIAT_AC_SS)',
-  ],
-  NIFA: ['NIFA (NWD_NIFA)'],
-  'NxtWave Abroad': ['NxtWave Abroad (NWD_NA)'],
-  'NxtWave Edge - Colleges': ['NxtWave Edge - Colleges (NWD_NWEC)'],
-  'Placement Success Management': ['Placement Success Management (NWD_PSM)'],
-  'Placement Support Team': [
-    'B2B Marketing (NWD_PST_B2B)',
-    'Placement Support Team (NWD_PST)',
-    'PST - Corporate Relations (NWD_PST_CR)',
-    'PST - Customer Support (NWD_PST_CS)',
-    'PST - Lead Acquisition (NWD_PST_LA)',
-    'PST - Placement Content Team (NWD_PST_PCT)',
-    'PST - Placement Coordinator (NWD_PST_PC)',
-    'Topin Tech (NWD_PST_TT)',
-  ],
-  'Pre Sales': [
-    'AC_4.0 Tribe (NWD_PS_LG_AC-4.0T&NET)',
-    'AC_Digital Marketing (NWD_PS_AC_DM)',
-    'AC_Lead Qualification (NWD_PS_AC-LQ)',
-    'Affiliate Admission Consultant (NWD_PS_AAC)',
-    'College Dost & SEO (NWD_CDSEO)',
-    'College Dost & SEO (NWD_PS_LG_CD&SEO)',
-    'Digital Marketing (NWD_PS_DM)',
-    'Influencer Marketing & Digital Affiliate (NWD_IMDA)',
-    'Influencer Marketing & Digital Affiliate (NWD_PS_LG_IM&DA)',
-    'L&D - Presales (NWD_PS_LD)',
-    'Lead Generation (NWD_PS_LG)',
-    'Lead Qualification (NWD_PS_LQ)',
-    'NIAT (NWD_PSS_NIAT)',
-    'NIAT_Lead Qualification (NWD_PS_LQ_NIAT-LQ)',
-    'NIAT_Offline Lead Generation (NWD_PS_NIAT_OLG)',
-    'PC - Positive Community Building (NWD_PS_PC_PCB)',
-    'Pre Sales (NWD_PS)',
-  ],
-  Product: [
-    'Product - NxtGig AI Accelerator (NWD_P_NXTGIG)',
-    'Product (NWD_P)',
-    'Product-Learning (NW_P_PDL)',
-    'Product-Sales (NW_P_PRS)',
-  ],
-  'QR - Query Resolution': ['QR - Query Resolution (NWD_QR)'],
-  Sales: [
-    'Academy_CGE (NWD_SA_AC_CGE)',
-    'Academy_Hiring (NWD_SA_AC_HI)',
-    'Academy_QA (NWD_SA_AC_QA)',
-    'Academy_Training (NWD_SA_AC_TR)',
-    'Intensive_CGE (NWD_SA_IN_CGE)',
-    'NIAT_CGE (NWD_SA_NIAT_CGE)',
-    'Sales (NWD_SA)',
-  ],
-  'Student Success': [
-    'AC_Customer Support (NWD_SS_AC_CS)',
-    'AC_Success Coach (NWD_SS_AC_SC)',
-    'Student Engagement (NWD_SS_AC_SE)',
-  ],
-  'Tech Team': [
-    'Academy Student Success POD (NWD_TEC_ASSP)',
-    'Central Tech Team (NWD_TEC_CTT)',
-    'Content & Learning Outcomes POD (NWD_TEC_CO&LO)',
-    'DSA POD (NWD_TEC_DSAP)',
-    'NIAT Student Success POD (NWD_TEC_NSSP)',
-    'Placement Support POD (NWD_TEC_PSP)',
-    'Pre Sales POD (NWD_TEC_PSAP)',
-    'Sales POD (NWD_TEC_SA)',
-    'Website Team (NWD_TEC_WT)',
-  ],
-  'University Partnerships': [
-    'University Partnerships (NWD_UP)',
-    'University Partnerships (NWD_UPS)',
-  ],
-  'Video House': [
-    'NIAT Studio (NWD_NIAT_S)',
-    'NxtWave Studio (NW_NXT_ST)',
-    'Pre-Sales Studio (NWD_PS_ST)',
-    'Video House (NWD_VH)',
-    'Webinar Studio (NWD_VH_WS)',
-  ],
-}
-
-const DEPARTMENT_OPTIONS = Array.from(
-  new Set(
-    Object.values(DEPARTMENTS_BY_TOP_DEPARTMENT).flat()
-  )
-).sort()
-
-const TOP_DEPARTMENT_BY_DEPARTMENT = Object.entries(
-  DEPARTMENTS_BY_TOP_DEPARTMENT
-).reduce((acc, [topDept, departments]) => {
-  departments.forEach((dept) => {
-    acc[dept] = topDept
-  })
-  return acc
-}, {})
-
-const getDepartmentOptionsForTopDepartment = (topDepartment) => {
-  if (!topDepartment) return DEPARTMENT_OPTIONS
-  return DEPARTMENTS_BY_TOP_DEPARTMENT[topDepartment] ?? DEPARTMENT_OPTIONS
-}
-
 const TOP_DEPARTMENT_OPTIONS = [
   '10xIIT',
   'Academy Student Success',
@@ -237,6 +40,8 @@ const TOP_DEPARTMENT_OPTIONS = [
   'University Partnerships',
   'Video House',
 ]
+
+const DEPARTMENT_OPTIONS = TOP_DEPARTMENT_OPTIONS
 
 const HOD_OPTIONS = [
   'Srikar Naidu Edumudi (NW0001283)',
@@ -280,6 +85,7 @@ const HOD_OPTIONS = [
   'Joiet Joseph (NW0002644)',
 ]
 
+// Mapping based on Department column in the reference sheet (kept for backward compatibility)
 const HOD_BY_DEPARTMENT = {
   '10xIIT (NWD_10XIIT)': 'Srikar Naidu Edumudi (NW0001283)',
   'AC_Customer Support (NWD_ASS_ACCS)': 'Vamshi Gadagoju (NW0001169)',
@@ -409,6 +215,45 @@ const HOD_BY_DEPARTMENT = {
   'Pre-Sales Studio (NWD_PS_ST)': 'Joiet Joseph (NW0002644)',
   'Video House (NWD_VH)': 'Joiet Joseph (NW0002644)',
   'Webinar Studio (NWD_VH_WS)': 'Joiet Joseph (NW0002644)',
+}
+
+// Primary mapping: Top Department -> HOD (derived from the sheet)
+const HOD_BY_TOP_DEPARTMENT = {
+  '10xIIT': 'Srikar Naidu Edumudi (NW0001283)',
+  'Academy Student Success': 'Vamshi Gadagoju (NW0001169)',
+  'AS - Program Registration Expert': 'Anil Kumar Ganguri (NW0000311)',
+  'B2B Partnership': 'Girish Akash Yeshwanth Karri (NW0000306)',
+  'Brand Marketing': 'Nikita Aggarwal (NW0001916)',
+  'Business Operations': 'Shivam Singh (NW0001089)',
+  'CD - Curriculum Development': 'Pavan Gangireddy (NW0002526)',
+  'Content and Curriculum Development: Aptitude, English and Assessments':
+    'Sai teja Manchukanti',
+  'Content Development': 'Sashank Reddy Gujjula (NW0000002)',
+  CT: 'Rahul Attuluri (NW0000001)',
+  'Data Science and Machine Learning': 'Akhil Jogiparthi (NW0000305)', // primary owner
+  'Design Studio': 'Aman Maheshwari (NW0003000)',
+  'Finance & Legal': 'Penmetsa Anirudh Varma (NW0003518)', // top-level finance owner
+  "Founder's Office": 'Rahul Attuluri (NW0000001)',
+  'GenAI Social Media': 'Rahul Yenninti (NW0001673)',
+  'HR - Human Resources': 'Radha Alekhya Kommanaboina (NW0001565)', // core HR owner
+  'HR - Talent Acquisition': 'Hari Haran Gorijavola (NW0000390)',
+  'Intensive Student Success': 'Aniketh Mustoor (NW0000307)',
+  'Internal Audit': 'Radha Alekhya Kommanaboina (NW0001565)',
+  'NIAT Hostel Facilities Team': 'Anil Kumar Ganguri (NW0000311)',
+  NIAT_Academics: 'Aniketh Mustoor (NW0000307)', // academic lead
+  NIFA: 'Akhil Jogiparthi (NW0000305)',
+  'NxtWave Abroad': 'Shiva Shanker Reddy Devasani (NW0000302)',
+  'NxtWave Edge - Colleges': 'Srikar Naidu Edumudi (NW0001283)',
+  'Placement Success Management': 'Vishnu Vamsi Vardhan Tallam (NW0000088)',
+  'Placement Support Team': 'Girish Akash Yeshwanth Karri (NW0000306)',
+  'Pre Sales': 'Shiva Shanker Reddy Devasani (NW0000302)',
+  Product: 'Revanth Gopi Konakanchi (NW0000075)',
+  'QR - Query Resolution': 'Vishnu Vamsi Vardhan Tallam (NW0000088)',
+  Sales: 'Sai Sumanth Reddy Gattikoppula (NW0000301)',
+  'Student Success': 'Aniketh Mustoor (NW0000307)',
+  'Tech Team': 'Revanth Gopi Konakanchi (NW0000075)',
+  'University Partnerships': 'Karthik Reddy Vummadi (NW0000308)',
+  'Video House': 'Joiet Joseph (NW0002644)',
 }
 
 const WORK_LOCATION_OPTIONS = [
@@ -651,25 +496,25 @@ export default function NewJoineeTable({
                       let options = FIELD_OPTIONS[column.key]
                       const value = row[column.key] ?? ''
 
-                      if (column.key === 'departmentLabel') {
-                        options = getDepartmentOptionsForTopDepartment(
-                          row.topDepartment
-                        )
-                      }
-
                       if (column.key === 'sourceHod') {
-                        const mapped =
+                        const mappedFromTop =
+                          HOD_BY_TOP_DEPARTMENT[row.topDepartment]
+                        const mappedFromDept =
                           HOD_BY_DEPARTMENT[row.sourceDepartment] ||
                           HOD_BY_DEPARTMENT[row.departmentLabel]
+                        const mapped = mappedFromTop || mappedFromDept
                         if (mapped) {
                           options = [mapped]
                         }
                       }
 
                       if (column.key === 'beneficiaryHod') {
-                        const mapped =
+                        const mappedFromTop =
+                          HOD_BY_TOP_DEPARTMENT[row.topDepartment]
+                        const mappedFromDept =
                           HOD_BY_DEPARTMENT[row.beneficiaryDepartment] ||
                           HOD_BY_DEPARTMENT[row.departmentLabel]
+                        const mapped = mappedFromTop || mappedFromDept
                         if (mapped) {
                           options = [mapped]
                         }
@@ -678,59 +523,32 @@ export default function NewJoineeTable({
                       const handleChange = (event) => {
                         const newValue = event.target.value
 
-                        if (column.key === 'departmentLabel') {
-                          onFieldChange(row._id, column.key, newValue)
-                          const inferredTopDepartment =
-                            TOP_DEPARTMENT_BY_DEPARTMENT[newValue]
-                          if (inferredTopDepartment) {
-                            onFieldChange(
-                              row._id,
-                              'topDepartment',
-                              inferredTopDepartment
-                            )
-                            const mappedHod = HOD_BY_DEPARTMENT[newValue]
-                            if (mappedHod) {
-                              onFieldChange(
-                                row._id,
-                                'beneficiaryHod',
-                                mappedHod
-                              )
-                            }
-                          }
-                          return
-                        }
+                        // Keep all department-related fields in sync
+                        if (
+                          column.key === 'topDepartment' ||
+                          column.key === 'departmentLabel' ||
+                          column.key === 'sourceDepartment' ||
+                          column.key === 'beneficiaryDepartment'
+                        ) {
+                          onFieldChange(row._id, 'topDepartment', newValue)
+                          onFieldChange(row._id, 'departmentLabel', newValue)
+                          onFieldChange(row._id, 'sourceDepartment', newValue)
+                          onFieldChange(
+                            row._id,
+                            'beneficiaryDepartment',
+                            newValue
+                          )
 
-                        if (column.key === 'sourceDepartment') {
-                          onFieldChange(row._id, column.key, newValue)
-                          const mappedHod = HOD_BY_DEPARTMENT[newValue]
+                          const mappedHod =
+                            HOD_BY_TOP_DEPARTMENT[newValue] ||
+                            HOD_BY_DEPARTMENT[newValue]
                           if (mappedHod) {
                             onFieldChange(row._id, 'sourceHod', mappedHod)
-                          }
-                          return
-                        }
-
-                        if (column.key === 'beneficiaryDepartment') {
-                          onFieldChange(row._id, column.key, newValue)
-                          const mappedHod = HOD_BY_DEPARTMENT[newValue]
-                          if (mappedHod) {
                             onFieldChange(
                               row._id,
                               'beneficiaryHod',
                               mappedHod
                             )
-                          }
-                          return
-                        }
-
-                        if (column.key === 'topDepartment') {
-                          onFieldChange(row._id, column.key, newValue)
-                          const allowedDepartments =
-                            getDepartmentOptionsForTopDepartment(newValue)
-                          if (
-                            row.departmentLabel &&
-                            !allowedDepartments.includes(row.departmentLabel)
-                          ) {
-                            onFieldChange(row._id, 'departmentLabel', '')
                           }
                           return
                         }
