@@ -4,6 +4,413 @@ const MAX_INPUT_WIDTH = 640
 const CHAR_PIXEL_WIDTH = 9
 const EXTRA_PADDING = 32
 
+const DEPARTMENTS_BY_TOP_DEPARTMENT = {
+  '10xIIT': ['10xIIT (NWD_10XIIT)'],
+  'Academy Student Success': [
+    'AC_Customer Support (NWD_ASS_ACCS)',
+    'Central Team- Academy Student Success (NWD_ASS_CT)',
+    'IN_Customer Support (NWD_ASS_IN_CS)',
+    'Payments Retention Team (NWD_ASS_PYRT)',
+    'Placement Preparation (NWD_ASS_PP)',
+    'Pre-Onboarding (Pre-Onboarding_NWD_ASS_PO)',
+    'Student Engagement (NWD_ASS_SE)',
+    'Success Coach (NWD_ASS_SC)',
+  ],
+  'AS - Program Registration Expert': [
+    'AS - Program Registration Expert (NWD_BU_AS_PRE)',
+    'NIAT_Offline Lead Generation (NWD_AS_PRE_NIAT_OLG)',
+  ],
+  'B2B Partnership': ['B2B Partnership (NWD_B2BP)'],
+  'Brand Marketing': [
+    'Brand Marketing (NWD_BM)',
+    'Content Marketing (NWD__BM_CM)',
+  ],
+  'Business Operations': [
+    'Business Operations (NWD_BO)',
+    'Pre Sales (NWD_BO_PS)',
+  ],
+  'CD - Curriculum Development': [
+    'CD - Curriculum Development (NWD_CD_CD)',
+    'CD - Curriculum Development (NWD_TEC_CUD)',
+  ],
+  'Content and Curriculum Development: Aptitude, English and Assessments': [
+    'Assessment Content and Ops (NWD_CCD_AC_Ops)',
+    'Curriculum Development: Aptitude (NWD_CCD_CD_A)',
+    'Curriculum Development: English (NWD_CCD_CD_E)',
+  ],
+  'Content Development': [
+    'Content Development (NWD_CD)',
+    'DSA (NWD_CD_DSA)',
+  ],
+  CT: ['CT (NWD_CT)'],
+  'Data Science and Machine Learning': [
+    'CD - Content Development (NWD_DSML_CDCD)',
+    'Content Development- DSML (NWD_CD_DSML)',
+    'Data Science and Machine Learning (NWD_DSML)',
+    'NIAT_Master Class (NWD_DSML_NIAT_MC)',
+  ],
+  'Design Studio': [
+    'Design Studio (NWD_DS)',
+    'Graphic Design (NWD_DS_GD)',
+    'Product Design (NWD_DS_PD)',
+  ],
+  'Finance & Legal': [
+    'Finance (NWD_F&L_FIN)',
+    'FP&A (NWD_F&L_FP&A)',
+    'Legal (NWD_F&L_LE)',
+    'Legal (NWD_L)',
+  ],
+  "Founder's Office": [
+    'Control Tower (NWD_FO_CT)',
+    "Founder's Office (NWD_FO)",
+  ],
+  'GenAI Social Media': ['GenAI Social Media (NWD_GAISM)'],
+  'HR - Human Resources': [
+    'HR - Admin (NWD_HR_ADM)',
+    'HR - HRBP (NWD_HRBP)',
+    'HR - Human Resources (NWD_HR)',
+    'HR - Learning & Development (NWD_HR_L&D)',
+    'HR - Operations (NWD_HR_OPS)',
+    'HR - Payroll And Compliance (NWD_HR_P&C)',
+    'HR - Systems (NWD_HR_HRS)',
+    'PO - Procurement (NWD_HR_PO)',
+  ],
+  'HR - Talent Acquisition': ['HR - Talent Acquisition (NWD_HR_TA)'],
+  'Intensive Student Success': [
+    'College Plus Student Success (NWD_ISS_CPSS)',
+    'Intensive Student Success (Intensive Student Success_NWD_ISS_Int_SS)',
+    'Intensive Student Success (NWD_ISS_Int_SS)',
+    'Intensive Student Success (NWD_ISS)',
+    'PC - Positive Community Building (NWD_PC_PCB)',
+  ],
+  'Internal Audit': [
+    'Business Process Excellence & Assurance (NWD_IA_BPE&A)',
+    'Financial Audit (NWD_IA_FA)',
+    'Internal Audit (NWD_IA)',
+    'Sales Quality & Compliance Audit (NWD_IA_SQ&CA)',
+  ],
+  'NIAT Hostel Facilities Team': ['NIAT Hostel Facilities Team (NWD_NIAT_HFT)'],
+  NIAT_Academics: [
+    'NIAT_CRM & Data (NWD_NIAT_AC_CRM&D)',
+    'NIAT_Instructors (NWD_NIAT_AC_IN)',
+    'NIAT_Instructors & Mentors (NWD_NIAT_AC_I&M)',
+    'NIAT_Instructors_Aptitude & English (NWD_NIAT_AC_I_A&E)',
+    'NIAT_Instructors_DSA (NWD_NIAT_AC_DSA)',
+    'NIAT_Maths Instructors and Mentors (NWD_NIAT_MIM)',
+    'NIAT_Product (NWD_NIAT_AC_PRO)',
+    'NIAT_Program Operations (NWD_NIAT_AC_PO)',
+    'NIAT_Robotics (NWD_NIAT_AC_R)',
+    'NIAT_Student Engagement (NWD_NIAT_AC_SE)',
+    'NIAT_Student Success (NWD_NIAT_AC_SS)',
+  ],
+  NIFA: ['NIFA (NWD_NIFA)'],
+  'NxtWave Abroad': ['NxtWave Abroad (NWD_NA)'],
+  'NxtWave Edge - Colleges': ['NxtWave Edge - Colleges (NWD_NWEC)'],
+  'Placement Success Management': ['Placement Success Management (NWD_PSM)'],
+  'Placement Support Team': [
+    'B2B Marketing (NWD_PST_B2B)',
+    'Placement Support Team (NWD_PST)',
+    'PST - Corporate Relations (NWD_PST_CR)',
+    'PST - Customer Support (NWD_PST_CS)',
+    'PST - Lead Acquisition (NWD_PST_LA)',
+    'PST - Placement Content Team (NWD_PST_PCT)',
+    'PST - Placement Coordinator (NWD_PST_PC)',
+    'Topin Tech (NWD_PST_TT)',
+  ],
+  'Pre Sales': [
+    'AC_4.0 Tribe (NWD_PS_LG_AC-4.0T&NET)',
+    'AC_Digital Marketing (NWD_PS_AC_DM)',
+    'AC_Lead Qualification (NWD_PS_AC-LQ)',
+    'Affiliate Admission Consultant (NWD_PS_AAC)',
+    'College Dost & SEO (NWD_CDSEO)',
+    'College Dost & SEO (NWD_PS_LG_CD&SEO)',
+    'Digital Marketing (NWD_PS_DM)',
+    'Influencer Marketing & Digital Affiliate (NWD_IMDA)',
+    'Influencer Marketing & Digital Affiliate (NWD_PS_LG_IM&DA)',
+    'L&D - Presales (NWD_PS_LD)',
+    'Lead Generation (NWD_PS_LG)',
+    'Lead Qualification (NWD_PS_LQ)',
+    'NIAT (NWD_PSS_NIAT)',
+    'NIAT_Lead Qualification (NWD_PS_LQ_NIAT-LQ)',
+    'NIAT_Offline Lead Generation (NWD_PS_NIAT_OLG)',
+    'PC - Positive Community Building (NWD_PS_PC_PCB)',
+    'Pre Sales (NWD_PS)',
+  ],
+  Product: [
+    'Product - NxtGig AI Accelerator (NWD_P_NXTGIG)',
+    'Product (NWD_P)',
+    'Product-Learning (NW_P_PDL)',
+    'Product-Sales (NW_P_PRS)',
+  ],
+  'QR - Query Resolution': ['QR - Query Resolution (NWD_QR)'],
+  Sales: [
+    'Academy_CGE (NWD_SA_AC_CGE)',
+    'Academy_Hiring (NWD_SA_AC_HI)',
+    'Academy_QA (NWD_SA_AC_QA)',
+    'Academy_Training (NWD_SA_AC_TR)',
+    'Intensive_CGE (NWD_SA_IN_CGE)',
+    'NIAT_CGE (NWD_SA_NIAT_CGE)',
+    'Sales (NWD_SA)',
+  ],
+  'Student Success': [
+    'AC_Customer Support (NWD_SS_AC_CS)',
+    'AC_Success Coach (NWD_SS_AC_SC)',
+    'Student Engagement (NWD_SS_AC_SE)',
+  ],
+  'Tech Team': [
+    'Academy Student Success POD (NWD_TEC_ASSP)',
+    'Central Tech Team (NWD_TEC_CTT)',
+    'Content & Learning Outcomes POD (NWD_TEC_CO&LO)',
+    'DSA POD (NWD_TEC_DSAP)',
+    'NIAT Student Success POD (NWD_TEC_NSSP)',
+    'Placement Support POD (NWD_TEC_PSP)',
+    'Pre Sales POD (NWD_TEC_PSAP)',
+    'Sales POD (NWD_TEC_SA)',
+    'Website Team (NWD_TEC_WT)',
+  ],
+  'University Partnerships': [
+    'University Partnerships (NWD_UP)',
+    'University Partnerships (NWD_UPS)',
+  ],
+  'Video House': [
+    'NIAT Studio (NWD_NIAT_S)',
+    'NxtWave Studio (NW_NXT_ST)',
+    'Pre-Sales Studio (NWD_PS_ST)',
+    'Video House (NWD_VH)',
+    'Webinar Studio (NWD_VH_WS)',
+  ],
+}
+
+const DEPARTMENT_OPTIONS = Array.from(
+  new Set(
+    Object.values(DEPARTMENTS_BY_TOP_DEPARTMENT).flat()
+  )
+).sort()
+
+const TOP_DEPARTMENT_BY_DEPARTMENT = Object.entries(
+  DEPARTMENTS_BY_TOP_DEPARTMENT
+).reduce((acc, [topDept, departments]) => {
+  departments.forEach((dept) => {
+    acc[dept] = topDept
+  })
+  return acc
+}, {})
+
+const getDepartmentOptionsForTopDepartment = (topDepartment) => {
+  if (!topDepartment) return DEPARTMENT_OPTIONS
+  return DEPARTMENTS_BY_TOP_DEPARTMENT[topDepartment] ?? DEPARTMENT_OPTIONS
+}
+
+const TOP_DEPARTMENT_OPTIONS = [
+  '10xIIT',
+  'Academy Student Success',
+  'AS - Program Registration Expert',
+  'B2B Partnership',
+  'Brand Marketing',
+  'Business Operations',
+  'CD - Curriculum Development',
+  'Content and Curriculum Development: Aptitude, English and Assessments',
+  'Content Development',
+  'CT',
+  'Data Science and Machine Learning',
+  'Design Studio',
+  'Finance & Legal',
+  "Founder's Office",
+  'GenAI Social Media',
+  'HR - Human Resources',
+  'HR - Talent Acquisition',
+  'Intensive Student Success',
+  'Internal Audit',
+  'NIAT Hostel Facilities Team',
+  'NIAT_Academics',
+  'NIFA',
+  'NxtWave Abroad',
+  'NxtWave Edge - Colleges',
+  'Placement Success Management',
+  'Placement Support Team',
+  'Pre Sales',
+  'Product',
+  'QR - Query Resolution',
+  'Sales',
+  'Student Success',
+  'Tech Team',
+  'University Partnerships',
+  'Video House',
+]
+
+const HOD_OPTIONS = [
+  'Srikar Naidu Edumudi (NW0001283)',
+  'Vamshi Gadagoju (NW0001169)',
+  'Anil Kumar Ganguri (NW0000311)',
+  'Mansoor Valli Gangupalli (NW0000320)',
+  'Girish Akash Yeshwanth Karri (NW0000306)',
+  'Nikita Aggarwal (NW0001916)',
+  'Shivam Singh (NW0001089)',
+  'Pavan Gangireddy (NW0002526)',
+  'Sai teja Manchukanti',
+  'Sashank Reddy Gujjula (NW0000002)',
+  'Rahul Attuluri (NW0000001)',
+  'Rushikesh Konapure (NW0005433)',
+  'Akhil Jogiparthi (NW0000305)',
+  'Aman Maheshwari (NW0003000)',
+  'Penmetsa Anirudh Varma (NW0003518)',
+  'Devansh Mohata (NW0002722)',
+  'Megha Ahuja (NW0002812)',
+  'Rahul Yenninti (NW0001673)',
+  'Bala Bhaskar Reddy Dodda (NW0001170)',
+  'Radha Alekhya Kommanaboina (NW0001565)',
+  'Munagala Varun Reddy (NW0002247)',
+  'Divya Sri Nandigam (NW0001670)',
+  'Brahma Reddy Karumuru (NW0001637)',
+  'Hari Haran Gorijavola (NW0000390)',
+  'Aniketh Mustoor (NW0000307)',
+  'Sashank K (NW0002724)',
+  'Venkata Abhinav Devaguptapu (NW0000351)',
+  'Sai Teja Manchukanti (NW0000352)',
+  'Kompella Sai Manvish (NW0005113)',
+  'Pavan Reddy Dharma (NW0001171)',
+  'Shiva Shanker Reddy Devasani (NW0000302)',
+  'Vishnu Vamsi Vardhan Tallam (NW0000088)',
+  'Kadari Hari Krishna (NW0005153)',
+  'Revanth Gopi Konakanchi (NW0000075)',
+  'Tathagat Bisoyi (NW0003607)',
+  'Kumar Verma (NW0001266)',
+  'Sai Sumanth Reddy Gattikoppula (NW0000301)',
+  'Karthik Reddy Vummadi (NW0000308)',
+  'Joiet Joseph (NW0002644)',
+]
+
+const HOD_BY_DEPARTMENT = {
+  '10xIIT (NWD_10XIIT)': 'Srikar Naidu Edumudi (NW0001283)',
+  'AC_Customer Support (NWD_ASS_ACCS)': 'Vamshi Gadagoju (NW0001169)',
+  'Central Team- Academy Student Success (NWD_ASS_CT)': 'Vamshi Gadagoju (NW0001169)',
+  'IN_Customer Support (NWD_ASS_IN_CS)': 'Vamshi Gadagoju (NW0001169)',
+  'Payments Retention Team (NWD_ASS_PYRT)': 'Vamshi Gadagoju (NW0001169)',
+  'Placement Preparation (NWD_ASS_PP)': 'Vamshi Gadagoju (NW0001169)',
+  'Pre-Onboarding (Pre-Onboarding_NWD_ASS_PO)': 'Vamshi Gadagoju (NW0001169)',
+  'Student Engagement (NWD_ASS_SE)': 'Vamshi Gadagoju (NW0001169)',
+  'Success Coach (NWD_ASS_SC)': 'Vamshi Gadagoju (NW0001169)',
+  'AS - Program Registration Expert (NWD_BU_AS_PRE)': 'Anil Kumar Ganguri (NW0000311)',
+  'NIAT_Offline Lead Generation (NWD_AS_PRE_NIAT_OLG)': 'Mansoor Valli Gangupalli (NW0000320)',
+  'B2B Partnership (NWD_B2BP)': 'Girish Akash Yeshwanth Karri (NW0000306)',
+  'Brand Marketing (NWD_BM)': 'Nikita Aggarwal (NW0001916)',
+  'Content Marketing (NWD__BM_CM)': 'Nikita Aggarwal (NW0001916)',
+  'Business Operations (NWD_BO)': 'Shivam Singh (NW0001089)',
+  'Pre Sales (NWD_BO_PS)': 'Shivam Singh (NW0001089)',
+  'CD - Curriculum Development (NWD_CD_CD)': 'Pavan Gangireddy (NW0002526)',
+  'CD - Curriculum Development (NWD_TEC_CUD)': 'Pavan Gangireddy (NW0002526)',
+  'Assessment Content and Ops (NWD_CCD_AC_Ops)': 'Sai teja Manchukanti',
+  'Curriculum Development: Aptitude (NWD_CCD_CD_A)': 'Sai teja Manchukanti',
+  'Curriculum Development: English (NWD_CCD_CD_E)': 'Sai teja Manchukanti',
+  'Content Development (NWD_CD)': 'Sashank Reddy Gujjula (NW0000002)',
+  'DSA (NWD_CD_DSA)': 'Sashank Reddy Gujjula (NW0000002)',
+  'CT (NWD_CT)': 'Rahul Attuluri (NW0000001)',
+  'CD - Content Development (NWD_DSML_CDCD)': 'Rushikesh Konapure (NW0005433)',
+  'Content Development- DSML (NWD_CD_DSML)': 'Sashank Reddy Gujjula (NW0000002)',
+  'Data Science and Machine Learning (NWD_DSML)': 'Akhil Jogiparthi (NW0000305)',
+  'NIAT_Master Class (NWD_DSML_NIAT_MC)': 'Akhil Jogiparthi (NW0000305)',
+  'Design Studio (NWD_DS)': 'Aman Maheshwari (NW0003000)',
+  'Graphic Design (NWD_DS_GD)': 'Aman Maheshwari (NW0003000)',
+  'Product Design (NWD_DS_PD)': 'Aman Maheshwari (NW0003000)',
+  'Finance (NWD_F&L_FIN)': 'Penmetsa Anirudh Varma (NW0003518)',
+  'FP&A (NWD_F&L_FP&A)': 'Devansh Mohata (NW0002722)',
+  'Legal (NWD_F&L_LE)': 'Megha Ahuja (NW0002812)',
+  'Legal (NWD_L)': 'Megha Ahuja (NW0002812)',
+  'Control Tower (NWD_FO_CT)': 'Rahul Attuluri (NW0000001)',
+  "Founder's Office (NWD_FO)": 'Rahul Attuluri (NW0000001)',
+  'GenAI Social Media (NWD_GAISM)': 'Rahul Yenninti (NW0001673)',
+  'HR - Admin (NWD_HR_ADM)': 'Bala Bhaskar Reddy Dodda (NW0001170)',
+  'HR - HRBP (NWD_HRBP)': 'Radha Alekhya Kommanaboina (NW0001565)',
+  'HR - Human Resources (NWD_HR)': 'Radha Alekhya Kommanaboina (NW0001565)',
+  'HR - Learning & Development (NWD_HR_L&D)': 'Munagala Varun Reddy (NW0002247)',
+  'HR - Operations (NWD_HR_OPS)': 'Divya Sri Nandigam (NW0001670)',
+  'HR - Payroll And Compliance (NWD_HR_P&C)': 'Brahma Reddy Karumuru (NW0001637)',
+  'HR - Systems (NWD_HR_HRS)': 'Divya Sri Nandigam (NW0001670)',
+  'PO - Procurement (NWD_HR_PO)': 'Bala Bhaskar Reddy Dodda (NW0001170)',
+  'HR - Talent Acquisition (NWD_HR_TA)': 'Hari Haran Gorijavola (NW0000390)',
+  'College Plus Student Success (NWD_ISS_CPSS)': 'Aniketh Mustoor (NW0000307)',
+  'Intensive Student Success (Intensive Student Success_NWD_ISS_Int_SS)': 'Aniketh Mustoor (NW0000307)',
+  'Intensive Student Success (NWD_ISS_Int_SS)': 'Rahul Attuluri (NW0000001)',
+  'Intensive Student Success (NWD_ISS)': 'Aniketh Mustoor (NW0000307)',
+  'PC - Positive Community Building (NWD_PC_PCB)': 'Sashank K (NW0002724)',
+  'Business Process Excellence & Assurance (NWD_IA_BPE&A)': 'Radha Alekhya Kommanaboina (NW0001565)',
+  'Financial Audit (NWD_IA_FA)': 'Radha Alekhya Kommanaboina (NW0001565)',
+  'Internal Audit (NWD_IA)': 'Radha Alekhya Kommanaboina (NW0001565)',
+  'Sales Quality & Compliance Audit (NWD_IA_SQ&CA)': 'Radha Alekhya Kommanaboina (NW0001565)',
+  'NIAT Hostel Facilities Team (NWD_NIAT_HFT)': 'Anil Kumar Ganguri (NW0000311)',
+  'NIAT_CRM & Data (NWD_NIAT_AC_CRM&D)': 'Aniketh Mustoor (NW0000307)',
+  'NIAT_Instructors (NWD_NIAT_AC_IN)': 'Venkata Abhinav Devaguptapu (NW0000351)',
+  'NIAT_Instructors & Mentors (NWD_NIAT_AC_I&M)': 'Rahul Attuluri (NW0000001)',
+  'NIAT_Instructors_Aptitude & English (NWD_NIAT_AC_I_A&E)': 'Sai Teja Manchukanti (NW0000352)',
+  'NIAT_Instructors_DSA (NWD_NIAT_AC_DSA)': 'Rahul Attuluri (NW0000001)',
+  'NIAT_Maths Instructors and Mentors (NWD_NIAT_MIM)': 'Kompella Sai Manvish (NW0005113)',
+  'NIAT_Product (NWD_NIAT_AC_PRO)': 'Rahul Attuluri (NW0000001)',
+  'NIAT_Program Operations (NWD_NIAT_AC_PO)': 'Pavan Reddy Dharma (NW0001171)',
+  'NIAT_Robotics (NWD_NIAT_AC_R)': 'Sai Teja Manchukanti (NW0000352)',
+  'NIAT_Student Engagement (NWD_NIAT_AC_SE)': 'Pavan Reddy Dharma (NW0001171)',
+  'NIAT_Student Success (NWD_NIAT_AC_SS)': 'Pavan Reddy Dharma (NW0001171)',
+  'NIFA (NWD_NIFA)': 'Akhil Jogiparthi (NW0000305)',
+  'NxtWave Abroad (NWD_NA)': 'Shiva Shanker Reddy Devasani (NW0000302)',
+  'NxtWave Edge - Colleges (NWD_NWEC)': 'Srikar Naidu Edumudi (NW0001283)',
+  'Placement Success Management (NWD_PSM)': 'Vishnu Vamsi Vardhan Tallam (NW0000088)',
+  'B2B Marketing (NWD_PST_B2B)': 'Girish Akash Yeshwanth Karri (NW0000306)',
+  'Placement Support Team (NWD_PST)': 'Girish Akash Yeshwanth Karri (NW0000306)',
+  'PST - Corporate Relations (NWD_PST_CR)': 'Girish Akash Yeshwanth Karri (NW0000306)',
+  'PST - Customer Support (NWD_PST_CS)': 'Girish Akash Yeshwanth Karri (NW0000306)',
+  'PST - Lead Acquisition (NWD_PST_LA)': 'Girish Akash Yeshwanth Karri (NW0000306)',
+  'PST - Placement Content Team (NWD_PST_PCT)': 'Sai Teja Manchukanti (NW0000352)',
+  'PST - Placement Coordinator (NWD_PST_PC)': 'Girish Akash Yeshwanth Karri (NW0000306)',
+  'Topin Tech (NWD_PST_TT)': 'Girish Akash Yeshwanth Karri (NW0000306)',
+  'AC_4.0 Tribe (NWD_PS_LG_AC-4.0T&NET)': 'Shiva Shanker Reddy Devasani (NW0000302)',
+  'AC_Digital Marketing (NWD_PS_AC_DM)': 'Shiva Shanker Reddy Devasani (NW0000302)',
+  'AC_Lead Qualification (NWD_PS_AC-LQ)': 'Kadari Hari Krishna (NW0005153)',
+  'Affiliate Admission Consultant (NWD_PS_AAC)': 'Shiva Shanker Reddy Devasani (NW0000302)',
+  'College Dost & SEO (NWD_CDSEO)': 'Shiva Shanker Reddy Devasani (NW0000302)',
+  'College Dost & SEO (NWD_PS_LG_CD&SEO)': 'Shiva Shanker Reddy Devasani (NW0000302)',
+  'Digital Marketing (NWD_PS_DM)': 'Shivam Singh (NW0001089)',
+  'Influencer Marketing & Digital Affiliate (NWD_IMDA)': 'N.A.',
+  'Influencer Marketing & Digital Affiliate (NWD_PS_LG_IM&DA)': 'Shiva Shanker Reddy Devasani (NW0000302)',
+  'L&D - Presales (NWD_PS_LD)': 'Shiva Shanker Reddy Devasani (NW0000302)',
+  'Lead Generation (NWD_PS_LG)': 'Shiva Shanker Reddy Devasani (NW0000302)',
+  'Lead Qualification (NWD_PS_LQ)': 'Shiva Shanker Reddy Devasani (NW0000302)',
+  'NIAT (NWD_PSS_NIAT)': 'Shiva Shanker Reddy Devasani (NW0000302)',
+  'NIAT_Lead Qualification (NWD_PS_LQ_NIAT-LQ)': 'Kadari Hari Krishna (NW0005153)',
+  'NIAT_Offline Lead Generation (NWD_PS_NIAT_OLG)': 'Shiva Shanker Reddy Devasani (NW0000302)',
+  'PC - Positive Community Building (NWD_PS_PC_PCB)': 'Shiva Shanker Reddy Devasani (NW0000302)',
+  'Pre Sales (NWD_PS)': 'Shiva Shanker Reddy Devasani (NW0000302)',
+  'Product - NxtGig AI Accelerator (NWD_P_NXTGIG)': 'Revanth Gopi Konakanchi (NW0000075)',
+  'Product (NWD_P)': 'Revanth Gopi Konakanchi (NW0000075)',
+  'Product-Learning (NW_P_PDL)': 'Revanth Gopi Konakanchi (NW0000075)',
+  'Product-Sales (NW_P_PRS)': 'Revanth Gopi Konakanchi (NW0000075)',
+  'QR - Query Resolution (NWD_QR)': 'Vishnu Vamsi Vardhan Tallam (NW0000088)',
+  'Academy_CGE (NWD_SA_AC_CGE)': 'Tathagat Bisoyi (NW0003607)',
+  'Academy_Hiring (NWD_SA_AC_HI)': 'Kumar Verma (NW0001266)',
+  'Academy_QA (NWD_SA_AC_QA)': 'Tathagat Bisoyi (NW0003607)',
+  'Academy_Training (NWD_SA_AC_TR)': 'Kumar Verma (NW0001266)',
+  'Intensive_CGE (NWD_SA_IN_CGE)': 'Aniketh Mustoor (NW0000307)',
+  'NIAT_CGE (NWD_SA_NIAT_CGE)': 'Sai Sumanth Reddy Gattikoppula (NW0000301)',
+  'Sales (NWD_SA)': 'Sai Sumanth Reddy Gattikoppula (NW0000301)',
+  'AC_Customer Support (NWD_SS_AC_CS)': 'Aniketh Mustoor (NW0000307)',
+  'AC_Success Coach (NWD_SS_AC_SC)': 'Aniketh Mustoor (NW0000307)',
+  'Student Engagement (NWD_SS_AC_SE)': 'Aniketh Mustoor (NW0000307)',
+  'Academy Student Success POD (NWD_TEC_ASSP)': 'Revanth Gopi Konakanchi (NW0000075)',
+  'Central Tech Team (NWD_TEC_CTT)': 'Revanth Gopi Konakanchi (NW0000075)',
+  'Content & Learning Outcomes POD (NWD_TEC_CO&LO)': 'Pavan Gangireddy (NW0002526)',
+  'DSA POD (NWD_TEC_DSAP)': 'Sashank Reddy Gujjula (NW0000002)',
+  'NIAT Student Success POD (NWD_TEC_NSSP)': 'Aniketh Mustoor (NW0000307)',
+  'Placement Support POD (NWD_TEC_PSP)': 'Girish Akash Yeshwanth Karri (NW0000306)',
+  'Pre Sales POD (NWD_TEC_PSAP)': 'Shiva Shanker Reddy Devasani (NW0000302)',
+  'Sales POD (NWD_TEC_SA)': 'Sai Sumanth Reddy Gattikoppula (NW0000301)',
+  'Website Team (NWD_TEC_WT)': 'Revanth Gopi Konakanchi (NW0000075)',
+  'University Partnerships (NWD_UP)': 'Karthik Reddy Vummadi (NW0000308)',
+  'University Partnerships (NWD_UPS)': 'Karthik Reddy Vummadi (NW0000308)',
+  'NIAT Studio (NWD_NIAT_S)': 'Joiet Joseph (NW0002644)',
+  'NxtWave Studio (NW_NXT_ST)': 'Joiet Joseph (NW0002644)',
+  'Pre-Sales Studio (NWD_PS_ST)': 'Joiet Joseph (NW0002644)',
+  'Video House (NWD_VH)': 'Joiet Joseph (NW0002644)',
+  'Webinar Studio (NWD_VH_WS)': 'Joiet Joseph (NW0002644)',
+}
+
 const WORK_LOCATION_OPTIONS = [
   'Brigade Towers: Ground Floor - East Wing',
   'Brigade Towers: First Floor - East Wing',
@@ -111,6 +518,10 @@ const MOBILE_PHONE_OPTIONS = ['NA', 'iPhone', 'Android', 'Samsung', 'OnePlus', '
 const FIELD_OPTIONS = {
   workMode: ['WFO', 'WFH', 'Hybrid'],
   type: ['New Hire', 'Replacement', 'Backfill'],
+  topDepartment: TOP_DEPARTMENT_OPTIONS,
+  departmentLabel: DEPARTMENT_OPTIONS,
+  sourceDepartment: DEPARTMENT_OPTIONS,
+  beneficiaryDepartment: DEPARTMENT_OPTIONS,
   workLocation: WORK_LOCATION_OPTIONS,
   employmentType: EMPLOYMENT_TYPE_OPTIONS,
   productOrDomain: PRODUCT_DOMAIN_OPTIONS,
@@ -124,6 +535,8 @@ const FIELD_OPTIONS = {
   peripherals: PERIPHERAL_OPTIONS,
   headPhone: HEADPHONE_OPTIONS,
   mobilePhone: MOBILE_PHONE_OPTIONS,
+  sourceHod: HOD_OPTIONS,
+  beneficiaryHod: HOD_OPTIONS,
 }
 
 const renderValue = (value) => {
@@ -235,10 +648,95 @@ export default function NewJoineeTable({
                   >
                     {columns.map((column) => {
                       const isDateField = DATE_FIELDS.has(column.key)
-                      const options = FIELD_OPTIONS[column.key]
+                      let options = FIELD_OPTIONS[column.key]
                       const value = row[column.key] ?? ''
-                      const handleChange = (event) =>
-                        onFieldChange(row._id, column.key, event.target.value)
+
+                      if (column.key === 'departmentLabel') {
+                        options = getDepartmentOptionsForTopDepartment(
+                          row.topDepartment
+                        )
+                      }
+
+                      if (column.key === 'sourceHod') {
+                        const mapped =
+                          HOD_BY_DEPARTMENT[row.sourceDepartment] ||
+                          HOD_BY_DEPARTMENT[row.departmentLabel]
+                        if (mapped) {
+                          options = [mapped]
+                        }
+                      }
+
+                      if (column.key === 'beneficiaryHod') {
+                        const mapped =
+                          HOD_BY_DEPARTMENT[row.beneficiaryDepartment] ||
+                          HOD_BY_DEPARTMENT[row.departmentLabel]
+                        if (mapped) {
+                          options = [mapped]
+                        }
+                      }
+
+                      const handleChange = (event) => {
+                        const newValue = event.target.value
+
+                        if (column.key === 'departmentLabel') {
+                          onFieldChange(row._id, column.key, newValue)
+                          const inferredTopDepartment =
+                            TOP_DEPARTMENT_BY_DEPARTMENT[newValue]
+                          if (inferredTopDepartment) {
+                            onFieldChange(
+                              row._id,
+                              'topDepartment',
+                              inferredTopDepartment
+                            )
+                            const mappedHod = HOD_BY_DEPARTMENT[newValue]
+                            if (mappedHod) {
+                              onFieldChange(
+                                row._id,
+                                'beneficiaryHod',
+                                mappedHod
+                              )
+                            }
+                          }
+                          return
+                        }
+
+                        if (column.key === 'sourceDepartment') {
+                          onFieldChange(row._id, column.key, newValue)
+                          const mappedHod = HOD_BY_DEPARTMENT[newValue]
+                          if (mappedHod) {
+                            onFieldChange(row._id, 'sourceHod', mappedHod)
+                          }
+                          return
+                        }
+
+                        if (column.key === 'beneficiaryDepartment') {
+                          onFieldChange(row._id, column.key, newValue)
+                          const mappedHod = HOD_BY_DEPARTMENT[newValue]
+                          if (mappedHod) {
+                            onFieldChange(
+                              row._id,
+                              'beneficiaryHod',
+                              mappedHod
+                            )
+                          }
+                          return
+                        }
+
+                        if (column.key === 'topDepartment') {
+                          onFieldChange(row._id, column.key, newValue)
+                          const allowedDepartments =
+                            getDepartmentOptionsForTopDepartment(newValue)
+                          if (
+                            row.departmentLabel &&
+                            !allowedDepartments.includes(row.departmentLabel)
+                          ) {
+                            onFieldChange(row._id, 'departmentLabel', '')
+                          }
+                          return
+                        }
+
+                        onFieldChange(row._id, column.key, newValue)
+                      }
 
                       return (
                         <td key={column.key} className="px-4 py-3 align-top text-sm text-slate-200">
