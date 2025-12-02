@@ -41,13 +41,13 @@ const COLUMN_DEFINITIONS = [
   { key: 'mobilePhone', label: 'Mobile Phone', width: '150px' },
   { key: 'scienceSbu', label: 'Science (SBU)', width: '150px' },
   { key: 'budgetAmount', label: 'Budget Amount', width: '150px' },
-  { key: 'academy', label: 'Academy', width: '130px' },
-  { key: 'intensive', label: 'Intensive', width: '130px' },
-  { key: 'niatBatch1', label: 'NIAT Batch 1', width: '150px' },
-  { key: 'niatBatch2', label: 'NIAT Batch 2', width: '150px' },
-  { key: 'niatBatch3', label: 'NIAT Batch 3', width: '150px' },
-  { key: 'others', label: 'Others', width: '150px' },
-  { key: 'common', label: 'Common', width: '220px' },
+  { key: 'academy', label: 'Academy %', width: '130px' },
+  { key: 'intensive', label: 'Intensive %', width: '130px' },
+  { key: 'niatBatch1', label: 'NIAT Batch 1 %', width: '150px' },
+  { key: 'niatBatch2', label: 'NIAT Batch 2 %', width: '150px' },
+  { key: 'niatBatch3', label: 'NIAT Batch 3 %', width: '150px' },
+  { key: 'others', label: 'Other Percentage', width: '150px' },
+  { key: 'common', label: 'Common Percentage', width: '220px' },
 ]
 
 const TA_COLUMN_DEFINITIONS = [

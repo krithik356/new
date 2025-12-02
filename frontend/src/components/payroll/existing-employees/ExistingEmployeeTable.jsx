@@ -1,3 +1,5 @@
+import { WORK_LOCATION_OPTIONS } from '../../../constants/workLocationOptions.js'
+
 const DATE_FIELDS = new Set(['doj', 'doe'])
 const DEFAULT_COLUMN_WIDTH = 160
 const MAX_INPUT_WIDTH = 640
@@ -98,21 +100,47 @@ export default function ExistingEmployeeTable({
                     {columns.map((column) => {
                       const isDateField = DATE_FIELDS.has(column.key)
                       const value = row[column.key] ?? ''
+
+                      // Use same dropdown as New Joinee sheet for Location column
+                      const isLocationField = column.key === 'location'
+
                       return (
                         <td key={column.key} className="px-4 py-3 align-top">
-                          <input
-                            type={isDateField ? 'date' : 'text'}
-                            value={value}
-                            onChange={(event) =>
-                              onFieldChange(
-                                row._id,
-                                column.key,
-                                event.target.value
-                              )
-                            }
-                            style={buildInputStyle(column, value, isDateField)}
-                            className="rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
-                          />
+                          {isLocationField ? (
+                            <select
+                              value={value}
+                              onChange={(event) =>
+                                onFieldChange(
+                                  row._id,
+                                  column.key,
+                                  event.target.value
+                                )
+                              }
+                              style={buildInputStyle(column, value, false)}
+                              className="rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+                            >
+                              <option value="">Select location</option>
+                              {WORK_LOCATION_OPTIONS.map((option) => (
+                                <option key={option} value={option}>
+                                  {option}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <input
+                              type={isDateField ? 'date' : 'text'}
+                              value={value}
+                              onChange={(event) =>
+                                onFieldChange(
+                                  row._id,
+                                  column.key,
+                                  event.target.value
+                                )
+                              }
+                              style={buildInputStyle(column, value, isDateField)}
+                              className="rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+                            />
+                          )}
                         </td>
                       )
                     })}

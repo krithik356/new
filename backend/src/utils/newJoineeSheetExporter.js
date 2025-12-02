@@ -32,13 +32,13 @@ const COLUMN_DEFINITIONS = [
   { header: "Mobile Phone", key: "mobilePhone" },
   { header: "Science (SBU)", key: "scienceSbu" },
   { header: "Budget Amount", key: "budgetAmount" },
-  { header: "Academy", key: "academy" },
-  { header: "Intensive", key: "intensive" },
-  { header: "NIAT Batch 1", key: "niatBatch1" },
-  { header: "NIAT Batch 2", key: "niatBatch2" },
-  { header: "NIAT Batch 3", key: "niatBatch3" },
-  { header: "Others", key: "others" },
-  { header: "Common", key: "common" },
+  { header: "Academy %", key: "academy" },
+  { header: "Intensive %", key: "intensive" },
+  { header: "NIAT Batch 1 %", key: "niatBatch1" },
+  { header: "NIAT Batch 2 %", key: "niatBatch2" },
+  { header: "NIAT Batch 3 %", key: "niatBatch3" },
+  { header: "Other Percentage", key: "others" },
+  { header: "Common Percentage", key: "common" },
 ];
 
 function formatDate(value) {
