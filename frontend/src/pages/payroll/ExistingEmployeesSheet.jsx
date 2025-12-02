@@ -22,14 +22,16 @@ const COLUMN_DEFINITIONS = [
   { key: 'sourceHod', label: 'Source HOD', width: '180px' },
   { key: 'beneficiaryHod', label: 'Benficiary HOD', width: '200px' },
   { key: 'workMode', label: 'WFO/WFH', width: '140px' },
+  { key: 'universityDetails', label: 'University Details', width: '200px' },
+  { key: 'location', label: 'Location', width: '180px' },
   { key: 'employeeType', label: 'Employee Type', width: '180px' },
-  { key: 'academy', label: 'Academy', width: '140px' },
-  { key: 'intensive', label: 'Intensive', width: '140px' },
-  { key: 'niatBatch12', label: 'NIAT Batch 1&2', width: '180px' },
-  { key: 'niatBatch3', label: 'NIAT Batch 3', width: '160px' },
-  { key: 'niatBatch4', label: 'NIAT Batch 4', width: '160px' },
-  { key: 'others', label: 'Others', width: '150px' },
-  { key: 'common', label: 'Common', width: '150px' },
+  { key: 'academy', label: 'Academy %', width: '140px' },
+  { key: 'intensive', label: 'Intensive %', width: '140px' },
+  { key: 'niatBatch12', label: 'NIAT Batch 1&2 %', width: '180px' },
+  { key: 'niatBatch3', label: 'NIAT Batch 3 %', width: '160px' },
+  { key: 'niatBatch4', label: 'NIAT Batch 4 %', width: '160px' },
+  { key: 'others', label: 'Other Products', width: '150px' },
+  { key: 'common', label: 'Common Products', width: '150px' },
 ]
 
 const PERCENTAGE_FIELDS = [

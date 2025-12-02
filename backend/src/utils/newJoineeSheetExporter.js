@@ -3,7 +3,6 @@ const ExcelJS = require("exceljs");
 const COLUMN_DEFINITIONS = [
   { header: "EMP Name", key: "employeeName" },
   { header: "DOJ", key: "doj" },
-  { header: "DOE", key: "doe" },
   { header: "Designation", key: "designation" },
   { header: "Department", key: "departmentLabel" },
   { header: "Top Department", key: "topDepartment" },
@@ -78,7 +77,7 @@ async function buildNewJoineeWorkbook(records = []) {
     records.forEach((record) => {
       const row = {};
       COLUMN_DEFINITIONS.forEach(({ key }) => {
-        if (key === "doj" || key === "doe") {
+        if (key === "doj") {
           row[key] = formatDate(record[key]);
         } else {
           row[key] = record[key] ?? "";

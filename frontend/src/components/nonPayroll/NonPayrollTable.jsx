@@ -23,7 +23,18 @@ export default function NonPayrollTable({
   departmentOptions,
   hodOptions,
   hodByTopDepartment,
+  isReadOnlySheet = false,
 }) {
+  const renderValue = (value) => {
+    if (value === null || value === undefined) {
+      return '—'
+    }
+    if (typeof value === 'number') {
+      return Number.isNaN(value) ? '—' : value
+    }
+    const normalized = value.toString().trim()
+    return normalized.length > 0 ? normalized : '—'
+  }
   return (
     <div className="overflow-hidden rounded-3xl border border-slate-800/70 bg-slate-950/80 shadow-2xl shadow-black/30">
       <div className="overflow-x-auto">
@@ -39,21 +50,29 @@ export default function NonPayrollTable({
                   {column.label}
                 </th>
               ))}
-              <th className="w-48 px-4 py-3 text-right text-[0.65rem] uppercase tracking-[0.5em] text-slate-500">
-                Actions
-              </th>
+              {!isReadOnlySheet && (
+                <th className="w-48 px-4 py-3 text-right text-[0.65rem] uppercase tracking-[0.5em] text-slate-500">
+                  Actions
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={columns.length + 1} className="px-4 py-16 text-center text-sm text-slate-400">
+                <td
+                  colSpan={columns.length + (isReadOnlySheet ? 0 : 1)}
+                  className="px-4 py-16 text-center text-sm text-slate-400"
+                >
                   Loading non-payroll items…
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={columns.length + 1} className="px-4 py-16 text-center text-sm text-slate-400">
+                <td
+                  colSpan={columns.length + (isReadOnlySheet ? 0 : 1)}
+                  className="px-4 py-16 text-center text-sm text-slate-400"
+                >
                   No entries yet. Use “Add Row” to start planning non-payroll spend.
                 </td>
               </tr>
@@ -67,10 +86,22 @@ export default function NonPayrollTable({
                   >
                     {columns.map((column) => {
                       // Use formatted duration for display if available
-                      const displayValue = column.key === 'serviceDurationDays' && row.serviceDurationFormatted
-                        ? row.serviceDurationFormatted
-                        : row[column.key] ?? ''
-                      const value = row[column.key] ?? ''
+                      const rawValue = row[column.key] ?? ''
+                      const displayValue =
+                        column.key === 'serviceDurationDays' && row.serviceDurationFormatted
+                          ? row.serviceDurationFormatted
+                          : rawValue
+
+                      // In global view mode, render plain text cells like New Joinee sheet
+                      if (isReadOnlySheet) {
+                        return (
+                          <td key={column.key} className="px-4 py-3 align-top text-sm text-slate-200">
+                            {renderValue(displayValue)}
+                          </td>
+                        )
+                      }
+
+                      const value = rawValue
                       const fieldError = rowError?.fields?.[column.key]
                       const inputClasses = `${baseInputClasses} ${fieldError ? errorInputClasses : ''}`
                       const isReadOnly = READ_ONLY_KEYS.has(column.key) || column.readOnly
@@ -241,30 +272,32 @@ export default function NonPayrollTable({
                         </td>
                       )
                     })}
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex flex-col gap-2 text-xs text-slate-400">
-                        <button
-                          type="button"
-                          onClick={() => onSaveRow(row)}
-                          disabled={savingId === row._id || rowError?.messages?.length > 0}
-                          className={actionButtonClasses}
-                        >
-                          {row._id.startsWith('temp-') ? 'Save' : 'Update'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onDeleteRow(row)}
-                          className="rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-red-300 transition hover:bg-red-500/20"
-                        >
-                          Delete
-                        </button>
-                        {rowError?.messages?.length ? (
-                          <p className="text-[0.65rem] uppercase tracking-[0.3em] text-red-400">
-                            {rowError.messages[0]}
-                          </p>
-                        ) : null}
-                      </div>
-                    </td>
+                    {!isReadOnlySheet && (
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex flex-col gap-2 text-xs text-slate-400">
+                          <button
+                            type="button"
+                            onClick={() => onSaveRow(row)}
+                            disabled={savingId === row._id || rowError?.messages?.length > 0}
+                            className={actionButtonClasses}
+                          >
+                            {row._id.startsWith('temp-') ? 'Save' : 'Update'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onDeleteRow(row)}
+                            className="rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-red-300 transition hover:bg-red-500/20"
+                          >
+                            Delete
+                          </button>
+                          {rowError?.messages?.length ? (
+                            <p className="text-[0.65rem] uppercase tracking-[0.3em] text-red-400">
+                              {rowError.messages[0]}
+                            </p>
+                          ) : null}
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 )
               })

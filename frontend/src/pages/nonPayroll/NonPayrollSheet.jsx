@@ -323,9 +323,11 @@ export default function NonPayrollSheet() {
   const [uploading, setUploading] = useState(false)
   const [activeDepartment, setActiveDepartment] = useState('all')
   const [selectedUploadFileName, setSelectedUploadFileName] = useState('')
+  const [editMode, setEditMode] = useState(false)
   const fileInputRef = useRef(null)
 
   const isAdmin = role === 'Admin'
+  const canEdit = role === 'Admin' || role === 'HOD'
 
   const loadRows = useCallback(async () => {
     if (!token) return
@@ -357,6 +359,11 @@ export default function NonPayrollSheet() {
   }, [loadRows])
 
   const addRow = () => {
+    if (!canEdit) return
+    // Match New Joinee behaviour: automatically switch to edit mode when adding a row
+    if (!editMode) {
+      setEditMode(true)
+    }
     const departmentHint = isAdmin && activeDepartment !== 'all' ? activeDepartment : hodDepartmentName
     const newRow = createEmptyRow(role, departmentHint)
     setRows((prev) => [newRow, ...prev])
@@ -444,6 +451,7 @@ export default function NonPayrollSheet() {
   }
 
   const handleFieldChange = (rowId, field, value) => {
+    if (!editMode || !canEdit) return
     setRows((prev) => {
       const nextRows = prev.map((row) => {
         if (row._id !== rowId) return row
@@ -486,6 +494,7 @@ export default function NonPayrollSheet() {
   }
 
   const saveRow = async (row) => {
+    if (!editMode || !canEdit) return
     // Validate the row before saving
     const errors = validateRow(row, rows)
     if (errors && Object.keys(errors).length > 0) {
@@ -532,6 +541,7 @@ export default function NonPayrollSheet() {
   }
 
   const deleteRow = async (row) => {
+    if (!editMode || !canEdit) return
     if (row._id.startsWith('temp-')) {
       setRows((prev) => prev.filter((entry) => entry._id !== row._id))
       updateRowErrors(row._id, null)
@@ -607,6 +617,16 @@ export default function NonPayrollSheet() {
     return Object.values(rowErrors).flatMap((entry) => entry.messages || [])
   }, [rowErrors])
 
+  const sheetDescription = useMemo(() => {
+    if (isAdmin) {
+      if (activeDepartment === 'all') {
+        return 'Viewing non-payroll entries for all departments.'
+      }
+      return `Filtering non-payroll entries for ${activeDepartment.toUpperCase()}.`
+    }
+    return 'HOD view always scopes to your department.'
+  }, [activeDepartment, isAdmin])
+
   const handleUploadButton = () => {
     if (uploading) return
     fileInputRef.current?.click()
@@ -651,6 +671,28 @@ export default function NonPayrollSheet() {
         onChange={handleFileChange}
       />
 
+      <div className="flex items-center justify-between rounded-3xl border border-slate-900/60 bg-slate-950/60 px-4 py-3 text-sm text-slate-400">
+        <p>{sheetDescription}</p>
+        <div className="flex items-center gap-3">
+          {canEdit && (
+            <button
+              type="button"
+              onClick={() => setEditMode((prev) => !prev)}
+              className="inline-flex items-center justify-center rounded-2xl border border-blue-400/50 bg-blue-500/10 px-4 py-2 text-xs font-semibold text-blue-200 transition hover:bg-blue-500/20 hover:text-blue-100"
+            >
+              {editMode ? 'View Mode' : 'Edit'}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={loadRows}
+            className="text-xs uppercase tracking-[0.4em] text-emerald-300 underline decoration-dotted underline-offset-4"
+          >
+            Refresh
+          </button>
+        </div>
+      </div>
+
       {infoMessage ? (
         <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
           {infoMessage}
@@ -688,6 +730,7 @@ export default function NonPayrollSheet() {
         departmentOptions={TOP_DEPARTMENT_OPTIONS}
         hodOptions={HOD_OPTIONS}
         hodByTopDepartment={HOD_BY_TOP_DEPARTMENT}
+        isReadOnlySheet={!editMode || !canEdit}
       />
     </section>
   )

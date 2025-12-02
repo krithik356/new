@@ -16,13 +16,15 @@ const COLUMN_DEFINITIONS = [
   { header: "Benficiary HOD", key: "beneficiaryHod" },
   { header: "WFO/WFH", key: "workMode" },
   { header: "Employee Type", key: "employeeType" },
-  { header: "Academy", key: "academy" },
-  { header: "Intensive", key: "intensive" },
-  { header: "NIAT Batch 1&2", key: "niatBatch12" },
-  { header: "NIAT Batch 3", key: "niatBatch3" },
-  { header: "NIAT Batch 4", key: "niatBatch4" },
-  { header: "Others", key: "others" },
-  { header: "Common", key: "common" },
+  { header: "University Details", key: "universityDetails" },
+  { header: "Location", key: "location" },
+  { header: "Academy %", key: "academy" },
+  { header: "Intensive %", key: "intensive" },
+  { header: "NIAT Batch 1&2 %", key: "niatBatch12" },
+  { header: "NIAT Batch 3 %", key: "niatBatch3" },
+  { header: "NIAT Batch 4 %", key: "niatBatch4" },
+  { header: "Other Products", key: "others" },
+  { header: "Common Products", key: "common" },
 ];
 
 function formatDate(value) {

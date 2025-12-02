@@ -12,7 +12,6 @@ const editableFields = [
   "sbuClp",
   "employeeName",
   "doj",
-  "doe",
   "designation",
   "departmentLabel",
   "topDepartment",
@@ -54,7 +53,6 @@ const editableFields = [
 const columnDefinitions = [
   { header: "EMP Name", key: "employeeName" },
   { header: "DOJ", key: "doj", isDate: true },
-  { header: "DOE", key: "doe", isDate: true },
   { header: "Designation", key: "designation" },
   { header: "Department", key: "departmentLabel" },
   { header: "Top Department", key: "topDepartment" },

@@ -37,6 +37,8 @@ const ExistingEmployeePayrollSchema = new Schema(
     beneficiaryHod: stringField,
     workMode: stringField,
     employeeType: stringField,
+    universityDetails: stringField,
+    location: stringField,
     academy: stringField,
     intensive: stringField,
     niatBatch12: stringField,

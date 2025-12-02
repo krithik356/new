@@ -12,7 +12,6 @@ import TARequirementsTable from '../../components/payroll/ta-requirements/TARequ
 const COLUMN_DEFINITIONS = [
   { key: 'employeeName', label: 'EMP Name', width: '200px' },
   { key: 'doj', label: 'DOJ', width: '140px' },
-  { key: 'doe', label: 'DOE', width: '140px' },
   { key: 'designation', label: 'Designation', width: '180px' },
   { key: 'departmentLabel', label: 'Department', width: '180px' },
   { key: 'topDepartment', label: 'Top Department', width: '180px' },
@@ -170,7 +169,7 @@ const normalizeRow = (record) => {
   }
 
   COLUMN_DEFINITIONS.forEach(({ key }) => {
-    if (key === 'doj' || key === 'doe') {
+    if (key === 'doj') {
       row[key] = getDateValue(record?.[key])
     } else {
       row[key] = record?.[key] ?? ''
@@ -346,7 +345,7 @@ export default function NewJoineeSheet() {
 
     COLUMN_DEFINITIONS.forEach(({ key }) => {
       if (row[key] !== undefined && row[key] !== null) {
-        if ((key === 'doj' || key === 'doe') && row[key] === '') {
+        if (key === 'doj' && row[key] === '') {
           return
         }
         payload[key] = row[key]
