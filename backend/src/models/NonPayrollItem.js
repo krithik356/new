@@ -72,6 +72,11 @@ const NonPayrollItemSchema = new Schema(
       required: true,
       min: 0,
     },
+    gstRate: {
+      type: Number,
+      default: null,
+      min: 0,
+    },
     gstAmount: {
       type: Number,
       required: true,

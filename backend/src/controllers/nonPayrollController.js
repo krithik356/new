@@ -39,6 +39,12 @@ const COLUMN_DEFINITIONS = [
     numeric: true,
   },
   {
+    key: "gstRate",
+    header: "GST Rate (%)",
+    required: true,
+    numeric: true,
+  },
+  {
     key: "gstAmount",
     header: "GST Amount",
     required: true,
@@ -61,6 +67,7 @@ const KEY_TO_HEADER = new Map(
 );
 const NUMERIC_KEYS = [
   "budgetedPaymentAmountExcGst",
+  "gstRate",
   "gstAmount",
   "budgetedPaymentAmountInclGst",
 ];
@@ -228,6 +235,7 @@ function serializeItem(document) {
       : null,
     serviceDurationDays: document.serviceDurationDays,
     budgetedPaymentAmountExcGst: document.budgetedPaymentAmountExcGst,
+    gstRate: document.gstRate,
     gstAmount: document.gstAmount,
     budgetedPaymentAmountInclGst: document.budgetedPaymentAmountInclGst,
     dueMonthForPayment: document.dueMonthForPayment,
@@ -249,13 +257,41 @@ function applyCalculatedFields(payload, existing = {}) {
     payload.budgetedPaymentAmountExcGst !== undefined
       ? payload.budgetedPaymentAmountExcGst
       : existing.budgetedPaymentAmountExcGst ?? null;
+  const gstRate =
+    payload.gstRate !== undefined
+      ? payload.gstRate
+      : existing.gstRate ?? null;
   const gst =
     payload.gstAmount !== undefined
       ? payload.gstAmount
       : existing.gstAmount ?? null;
 
-  payload.serviceDurationDays = calculateServiceDurationDays(startDate, endDate);
-  payload.budgetedPaymentAmountInclGst = exc !== null ? calculateBudgetedInclGst(exc, gst) : null;
+  payload.serviceDurationDays = calculateServiceDurationDays(
+    startDate,
+    endDate
+  );
+
+  let nextGstAmount = gst;
+  let nextExc = exc;
+  let nextIncl = null;
+
+  if (exc !== null && gstRate !== null && gstRate !== undefined) {
+    const rateFraction = Number(gstRate) / 100;
+    const computedGst = Number((exc * rateFraction).toFixed(2));
+    nextGstAmount = computedGst;
+    nextExc = exc;
+    nextIncl = Number((exc + computedGst).toFixed(2));
+  } else if (exc !== null) {
+    nextIncl = calculateBudgetedInclGst(exc, gst);
+  }
+
+  if (nextGstAmount !== undefined) {
+    payload.gstAmount = nextGstAmount;
+  }
+  if (nextExc !== undefined && nextExc !== null) {
+    payload.budgetedPaymentAmountExcGst = nextExc;
+  }
+  payload.budgetedPaymentAmountInclGst = nextIncl;
 
   if (startDate === null && payload.serviceStartDate !== undefined) {
     payload.serviceStartDate = null;
@@ -601,6 +637,7 @@ async function exportNonPayrollItems(req, res, next) {
         serviceEndDate: formatDateForExport(item.serviceEndDate),
         serviceDurationDays: item.serviceDurationDays ?? "",
         budgetedPaymentAmountExcGst: item.budgetedPaymentAmountExcGst ?? "",
+        gstRate: item.gstRate ?? "",
         gstAmount: item.gstAmount ?? "",
         budgetedPaymentAmountInclGst: item.budgetedPaymentAmountInclGst ?? "",
         dueMonthForPayment: item.dueMonthForPayment ?? "",
@@ -810,6 +847,7 @@ async function uploadNonPayrollItems(req, res, next) {
         budgetedPaymentAmountExcGst: parseNumberInput(
           mappedRow.budgetedPaymentAmountExcGst
         ).value,
+        gstRate: parseNumberInput(mappedRow.gstRate).value,
         gstAmount: parseNumberInput(mappedRow.gstAmount).value,
         dueMonthForPayment: normalizeMonth(mappedRow.dueMonthForPayment),
       };

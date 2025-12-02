@@ -42,6 +42,7 @@ const COLUMN_DEFINITIONS = [
     width: 240,
     input: 'number',
   },
+  { key: 'gstRate', label: 'GST Rate (%)', width: 140, input: 'number' },
   { key: 'gstAmount', label: 'GST Amount', width: 160, input: 'number' },
   {
     key: 'budgetedPaymentAmountInclGst',
@@ -70,10 +71,11 @@ const REQUIRED_FIELDS = [
   'category',
   'product',
   'budgetedPaymentAmountExcGst',
+  'gstRate',
   'gstAmount',
 ]
 
-const NUMERIC_FIELDS = ['budgetedPaymentAmountExcGst', 'gstAmount']
+const NUMERIC_FIELDS = ['budgetedPaymentAmountExcGst', 'gstRate', 'gstAmount']
 const DATE_FIELDS = ['serviceStartDate', 'serviceEndDate']
 const READ_ONLY_KEYS = new Set(['serviceDurationDays', 'budgetedPaymentAmountInclGst'])
 
@@ -130,6 +132,16 @@ const calculateInclGst = (exc, gst) => {
   }
   const total = (Number.isNaN(gstValue) ? 0 : gstValue) + excValue
   return Number.isNaN(total) ? '' : Number(total.toFixed(2))
+}
+
+const calculateGstFromRate = (exc, rate) => {
+  const excValue = Number.parseFloat(exc)
+  const rateValue = Number.parseFloat(rate)
+  if (Number.isNaN(excValue) || Number.isNaN(rateValue)) {
+    return ''
+  }
+  const gst = excValue * (rateValue / 100)
+  return Number.isNaN(gst) ? '' : Number(gst.toFixed(2))
 }
 
 const normalizeRecord = (record) => {
@@ -215,10 +227,19 @@ export default function NonPayrollSheet() {
 
   const recalcDerivedFields = (row) => {
     const duration = calculateDuration(row.serviceStartDate, row.serviceEndDate)
-    const total = calculateInclGst(row.budgetedPaymentAmountExcGst, row.gstAmount)
+    let gstAmount = row.gstAmount
+    const autoGst =
+      row.budgetedPaymentAmountExcGst !== '' && row.gstRate !== ''
+        ? calculateGstFromRate(row.budgetedPaymentAmountExcGst, row.gstRate)
+        : ''
+    if (autoGst !== '') {
+      gstAmount = autoGst.toString()
+    }
+    const total = calculateInclGst(row.budgetedPaymentAmountExcGst, gstAmount)
     return {
       serviceDurationDays: duration,
       serviceDurationFormatted: formatDuration(duration),
+      gstAmount,
       budgetedPaymentAmountInclGst: total === '' ? '' : total,
     }
   }
@@ -294,6 +315,7 @@ export default function NonPayrollSheet() {
           const derived = recalcDerivedFields(nextRow)
           nextRow.serviceDurationDays = derived.serviceDurationDays
           nextRow.serviceDurationFormatted = derived.serviceDurationFormatted
+          nextRow.gstAmount = derived.gstAmount
           nextRow.budgetedPaymentAmountInclGst = derived.budgetedPaymentAmountInclGst
         }
         return nextRow
