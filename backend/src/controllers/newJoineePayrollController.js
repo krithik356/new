@@ -67,6 +67,11 @@ const columnDefinitions = [
   { header: "CTC Range", key: "ctcRange" },
   { header: "Experience Range", key: "experienceRange" },
   { header: "New Type", key: "newType" },
+  // NOTE: This column was missing earlier, which meant sheets generated
+  // from the exporter (which *do* include "Hiring Status") had one extra
+  // column and failed validation during upload. Adding it here keeps the
+  // validator in sync with the exported template and the UI.
+  { header: "Hiring Status", key: "hiringStatus" },
   { header: "Replacement Employee Name", key: "replacementEmployeeName" },
   { header: "Product / Working Domain", key: "productOrDomain" },
   { header: "Asset we have to provide", key: "assetRequirement" },
@@ -347,7 +352,40 @@ async function listNewJoinees(req, res) {
         });
       }
 
-      filter.department = userDepartment;
+      // Primary scope: entries that are explicitly linked to the HOD's department
+      // via the `department` ObjectId.
+      //
+      // However, some historical or imported rows may have only the
+      // `departmentKey`/`departmentLabel` set (for example, older sheets
+      // uploaded before department IDs were wired correctly). To avoid
+      // surprising "empty" views for HODs when data clearly exists for
+      // their department, we also fall back to matching by normalized
+      // department key and label.
+      const departmentFilter = { department: userDepartment };
+
+      try {
+        const departmentDoc = await Department.findById(userDepartment)
+          .select("name code")
+          .lean();
+
+        if (departmentDoc) {
+          const normalizedKey = normalizeDepartmentKey(
+            departmentDoc.code || departmentDoc.name
+          );
+
+          filter.$or = [
+            departmentFilter,
+            { departmentKey: normalizedKey },
+            { departmentLabel: departmentDoc.name },
+          ];
+        } else {
+          // Fallback: if the department document is missing, at least
+          // match by the ObjectId reference so we don't hide valid rows.
+          Object.assign(filter, departmentFilter);
+        }
+      } catch {
+        Object.assign(filter, departmentFilter);
+      }
     } else if (queryDepartment) {
       filter.departmentKey = normalizeDepartmentKey(queryDepartment);
     }
@@ -727,108 +765,6 @@ async function uploadNewJoineeSheet(req, res) {
   }
 }
 
-async function signOffNewJoinee(req, res) {
-  try {
-    const { id } = req.params;
-    const { role, id: userId } = req.user;
-
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid payroll entry identifier.",
-      });
-    }
-
-    if (role !== "HOD" && role !== "Admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Only HODs or Admins can perform sign-off.",
-      });
-    }
-
-    const record = await NewJoineePayroll.findById(id);
-
-    if (!record) {
-      return res.status(404).json({
-        success: false,
-        message: "Payroll entry not found.",
-      });
-    }
-
-    if (record.signedOff) {
-      return res.status(200).json({
-        success: true,
-        message: "This entry is already signed off.",
-        data: record,
-      });
-    }
-
-    if (!record.beneficiaryDepartment) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Beneficiary Department is required before sign off. Please fill it in and save the row.",
-      });
-    }
-
-    const beneficiaryMeta = await findDepartmentMetaFromLabel(
-      record.beneficiaryDepartment
-    );
-
-    if (!beneficiaryMeta) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Unable to resolve the beneficiary department. Please ensure it matches a valid Department.",
-      });
-    }
-
-    const payloadForBeneficiary = {
-      ...record.toObject(),
-      _id: undefined,
-      department: beneficiaryMeta.departmentId,
-      departmentKey: beneficiaryMeta.departmentKey,
-      departmentLabel: beneficiaryMeta.departmentLabel,
-      updatedBy: userId,
-      createdBy: userId,
-      signedOff: false,
-      signedOffAt: null,
-      signedOffBy: null,
-    };
-
-    const beneficiaryRecord = await NewJoineePayroll.create(
-      normalizeDates(payloadForBeneficiary)
-    );
-
-    record.signedOff = true;
-    record.signedOffAt = new Date();
-    record.signedOffBy = userId;
-    if (!record.hiringStatus) {
-      record.hiringStatus = "Signed Off";
-    }
-    await record.save();
-
-    await syncTARequirementsForRoles([
-      record.designation,
-      beneficiaryRecord.designation,
-    ]);
-
-    return res.status(200).json({
-      success: true,
-      message: "Joinee signed off successfully.",
-      data: {
-        source: record,
-        beneficiary: beneficiaryRecord,
-      },
-    });
-  } catch (error) {
-    return res.status(400).json({
-      success: false,
-      message: error.message || "Unable to sign off the selected joinee.",
-    });
-  }
-}
-
 module.exports = {
   listNewJoinees,
   exportNewJoineeSheet,
@@ -836,6 +772,5 @@ module.exports = {
   createNewJoinee,
   updateNewJoinee,
   deleteNewJoinee,
-  signOffNewJoinee,
 };
 

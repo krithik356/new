@@ -68,19 +68,6 @@ const NewJoineePayrollSchema = new Schema(
       ...stringField,
       alias: "comments",
     },
-    signedOff: {
-      type: Boolean,
-      default: false,
-    },
-    signedOffAt: {
-      type: Date,
-      default: null,
-    },
-    signedOffBy: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
-      default: null,
-    },
     createdBy: {
       type: Schema.Types.ObjectId,
       ref: "User",

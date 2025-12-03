@@ -3,7 +3,21 @@
 const { connectDB, disconnectDB } = require('../src/config/db');
 const { Department } = require('../src/models/Department');
 
+// NOTE:
+// Some flows (like HOD dashboards and sheet exporters) expect top-level
+// department names such as "Tech", "Design", and "Marketing" to exist.
+// These were previously removed when departments were reset, which broke
+// HOD department mappings and caused "Department mapping missing" errors.
+//
+// To fix this, we explicitly include those canonical department names again
+// alongside the existing, more granular teams.
 const DEPARTMENT_NAMES = [
+  // Top-level / canonical departments (used by HODs & exporters)
+  'Tech',
+  'Design',
+  'Marketing',
+
+  // Existing detailed departments
   'Brand Marketing',
   'Business Operations',
   'CD - Curriculum Development',

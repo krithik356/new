@@ -159,7 +159,38 @@ async function listTARequirements(req, res) {
           message: "Department mapping missing for current HOD.",
         });
       }
-      filter.departmentIds = userDepartment;
+      // Primary scope: TA requirements whose `departmentIds` include the HOD's
+      // department ObjectId.
+      //
+      // However, some historical or imported TA rows may only have the
+      // normalized department keys or string labels populated. To avoid
+      // surprising "empty" views for HODs when data clearly exists for
+      // their department, we also fall back to matching by normalized key
+      // and labels.
+      const baseFilter = { departmentIds: userDepartment };
+
+      try {
+        const { Department } = require("../models/Department");
+        const departmentDoc = await Department.findById(userDepartment)
+          .select("name code")
+          .lean();
+
+        if (departmentDoc) {
+          const normalizedKey = normalizeDepartmentKey(
+            departmentDoc.code || departmentDoc.name
+          );
+
+          filter.$or = [
+            baseFilter,
+            { departmentKeys: normalizedKey },
+            { departmentLabels: departmentDoc.name },
+          ];
+        } else {
+          Object.assign(filter, baseFilter);
+        }
+      } catch {
+        Object.assign(filter, baseFilter);
+      }
     } else if (queryDepartment && queryDepartment !== "all") {
       const normalizedDepartment = normalizeDepartmentKey(queryDepartment);
       if (normalizedDepartment) {

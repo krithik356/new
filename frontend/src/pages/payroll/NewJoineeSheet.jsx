@@ -171,7 +171,6 @@ const normalizeRow = (record) => {
     _id: record?._id ?? `temp-${createRowId()}`,
     departmentKey: record?.departmentKey ?? '',
     departmentId: record?.department ?? null,
-    signedOff: Boolean(record?.signedOff),
   }
 
   COLUMN_DEFINITIONS.forEach(({ key }) => {
