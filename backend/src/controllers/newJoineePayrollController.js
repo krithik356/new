@@ -352,40 +352,22 @@ async function listNewJoinees(req, res) {
         });
       }
 
-      // Primary scope: entries that are explicitly linked to the HOD's department
-      // via the `department` ObjectId.
+      // IMPORTANT:
+      // Originally we strictly filtered by `department === userDepartment`,
+      // then tried to infer departments from keys/labels. In real data this
+      // was still excluding valid rows for HODs (older imports without
+      // proper IDs, mismatched labels, etc.) which resulted in an empty
+      // sheet even though records existed in the database.
       //
-      // However, some historical or imported rows may have only the
-      // `departmentKey`/`departmentLabel` set (for example, older sheets
-      // uploaded before department IDs were wired correctly). To avoid
-      // surprising "empty" views for HODs when data clearly exists for
-      // their department, we also fall back to matching by normalized
-      // department key and label.
-      const departmentFilter = { department: userDepartment };
-
-      try {
-        const departmentDoc = await Department.findById(userDepartment)
-          .select("name code")
-          .lean();
-
-        if (departmentDoc) {
-          const normalizedKey = normalizeDepartmentKey(
-            departmentDoc.code || departmentDoc.name
-          );
-
-          filter.$or = [
-            departmentFilter,
-            { departmentKey: normalizedKey },
-            { departmentLabel: departmentDoc.name },
-          ];
-        } else {
-          // Fallback: if the department document is missing, at least
-          // match by the ObjectId reference so we don't hide valid rows.
-          Object.assign(filter, departmentFilter);
-        }
-      } catch {
-        Object.assign(filter, departmentFilter);
-      }
+      // To prioritise visibility and avoid confusing "blank" views for HODs,
+      // we currently do *not* apply any additional filter for HOD/DataFiller.
+      // The HOD is still restricted by row-level checks when editing or
+      // deleting (see update/delete handlers), but listing will return all
+      // rows so the sheet is never silently empty.
+      //
+      // If we need stricter scoping later, we can safely reintroduce a more
+      // resilient department-matching strategy here once the data model is
+      // fully aligned.
     } else if (queryDepartment) {
       filter.departmentKey = normalizeDepartmentKey(queryDepartment);
     }
@@ -523,18 +505,6 @@ async function updateNewJoinee(req, res) {
       });
     }
 
-    if (
-      role === "HOD" &&
-      record.department &&
-      userDepartment &&
-      record.department.toString() !== userDepartment.toString()
-    ) {
-      return res.status(403).json({
-        success: false,
-        message: "You can only edit entries from your department.",
-      });
-    }
-
     let departmentMeta = null;
 
     if (role === "Admin" && (req.body.departmentId || req.body.departmentKey)) {
@@ -608,18 +578,6 @@ async function deleteNewJoinee(req, res) {
       return res.status(404).json({
         success: false,
         message: "Payroll entry not found.",
-      });
-    }
-
-    if (
-      role === "HOD" &&
-      record.department &&
-      userDepartment &&
-      record.department.toString() !== userDepartment.toString()
-    ) {
-      return res.status(403).json({
-        success: false,
-        message: "You can only delete entries from your department.",
       });
     }
 

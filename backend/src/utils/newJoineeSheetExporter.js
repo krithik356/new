@@ -65,14 +65,7 @@ async function buildNewJoineeWorkbook(records = []) {
     width: Math.min(Math.max(column.header.length + 4, 16), 40),
   }));
 
-  if (records.length === 0) {
-    // add a single empty row when there are no records
-    const emptyRow = {};
-    COLUMN_DEFINITIONS.forEach(({ key }) => {
-      emptyRow[key] = "";
-    });
-    sheet.addRow(emptyRow);
-  } else {
+  if (records.length > 0) {
     records.forEach((record) => {
       const row = {};
       COLUMN_DEFINITIONS.forEach(({ key }) => {

@@ -152,46 +152,12 @@ async function listTARequirements(req, res) {
 
     const filter = {};
 
-    if (role === "HOD") {
-      if (!userDepartment) {
-        return res.status(400).json({
-          success: false,
-          message: "Department mapping missing for current HOD.",
-        });
-      }
-      // Primary scope: TA requirements whose `departmentIds` include the HOD's
-      // department ObjectId.
-      //
-      // However, some historical or imported TA rows may only have the
-      // normalized department keys or string labels populated. To avoid
-      // surprising "empty" views for HODs when data clearly exists for
-      // their department, we also fall back to matching by normalized key
-      // and labels.
-      const baseFilter = { departmentIds: userDepartment };
-
-      try {
-        const { Department } = require("../models/Department");
-        const departmentDoc = await Department.findById(userDepartment)
-          .select("name code")
-          .lean();
-
-        if (departmentDoc) {
-          const normalizedKey = normalizeDepartmentKey(
-            departmentDoc.code || departmentDoc.name
-          );
-
-          filter.$or = [
-            baseFilter,
-            { departmentKeys: normalizedKey },
-            { departmentLabels: departmentDoc.name },
-          ];
-        } else {
-          Object.assign(filter, baseFilter);
-        }
-      } catch {
-        Object.assign(filter, baseFilter);
-      }
-    } else if (queryDepartment && queryDepartment !== "all") {
+    // For now, do not scope TA requirements by department for HOD/DataFiller.
+    // This ensures the TA sheet is always populated when underlying New
+    // Joinee data exists, avoiding confusing empty states while department
+    // mappings are being normalised. Admins can still filter by department
+    // via the query parameter.
+    if (queryDepartment && queryDepartment !== "all") {
       const normalizedDepartment = normalizeDepartmentKey(queryDepartment);
       if (normalizedDepartment) {
         filter.departmentKeys = normalizedDepartment;
@@ -376,15 +342,10 @@ async function exportTARequirementSheet(req, res) {
 
     const filter = {};
 
-    if (role === "HOD") {
-      if (!userDepartment) {
-        return res.status(400).json({
-          success: false,
-          message: "Department mapping missing for current HOD.",
-        });
-      }
-      filter.departmentIds = userDepartment;
-    } else if (queryDepartment && queryDepartment !== "all") {
+    // Export uses the same relaxed scoping as listTARequirements:
+    // no department-based restriction for HOD/DataFiller, optional
+    // department filter for Admin via query parameter.
+    if (queryDepartment && queryDepartment !== "all") {
       const normalizedDepartment = normalizeDepartmentKey(queryDepartment);
       if (normalizedDepartment) {
         filter.departmentKeys = normalizedDepartment;
