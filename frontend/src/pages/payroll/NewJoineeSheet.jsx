@@ -27,18 +27,21 @@ const COLUMN_DEFINITIONS = [
   { key: 'ctcRange', label: 'CTC Range', width: '160px' },
   { key: 'experienceRange', label: 'Experience Range', width: '160px' },
   { key: 'newType', label: 'New Type', width: '150px' },
+  { key: 'hiringStatus', label: 'Hiring Status', width: '160px' },
   { key: 'replacementEmployeeName', label: 'Replacement Employee Name', width: '220px' },
   { key: 'productOrDomain', label: 'Product / Working Domain', width: '220px' },
-  { key: 'assetRequirement', label: 'Asset we have to provide', width: '220px' },
+  {
+    key: 'assetRequirement',
+    label: 'Asset we have to provide',
+    width: '220px',
+  },
   { key: 'processor', label: 'Processor', width: '150px' },
   { key: 'operatingSystem', label: 'Operating System', width: '170px' },
   { key: 'storage', label: 'Storage (SSD)', width: '150px' },
   { key: 'ram', label: 'RAM', width: '120px' },
-  { key: 'displaySize', label: 'Display Size', width: '150px' },
   { key: 'graphicCard', label: 'Graphic Card', width: '150px' },
   { key: 'peripherals', label: 'Peripherals', width: '150px' },
   { key: 'headPhone', label: 'Head Phone', width: '150px' },
-  { key: 'mobilePhone', label: 'Mobile Phone', width: '150px' },
   { key: 'scienceSbu', label: 'Science (SBU)', width: '150px' },
   { key: 'budgetAmount', label: 'Budget Amount', width: '150px' },
   { key: 'academy', label: 'Academy %', width: '130px' },
@@ -76,6 +79,7 @@ const TA_COLUMN_DEFINITIONS = [
   },
   { key: 'experienceRange', label: 'Experience Range', width: '200px' },
   { key: 'hireType', label: 'Hire Type', width: '160px' },
+  { key: 'hiringStatus', label: 'Hiring Status', width: '160px' },
   {
     key: 'replacementEmployeeName',
     label: 'Replacement Employee Name (Only for replacement hires)',
@@ -83,7 +87,11 @@ const TA_COLUMN_DEFINITIONS = [
   },
   { key: 'productWorkingOn', label: 'Product Working On', width: '240px' },
   { key: 'jdLink', label: 'JD Link', width: '220px' },
-  { key: 'assetToProvide', label: 'Asset to Provide', width: '220px' },
+  {
+    key: 'assetToProvide',
+    label: 'Asset we have to provide',
+    width: '220px',
+  },
   { key: 'processor', label: 'Processor', width: '160px' },
   { key: 'operatingSystem', label: 'Operating System', width: '200px' },
   { key: 'storage', label: 'Storage (SSD)', width: '170px' },
@@ -163,6 +171,7 @@ const normalizeRow = (record) => {
     _id: record?._id ?? `temp-${createRowId()}`,
     departmentKey: record?.departmentKey ?? '',
     departmentId: record?.department ?? null,
+    signedOff: Boolean(record?.signedOff),
   }
 
   COLUMN_DEFINITIONS.forEach(({ key }) => {
@@ -207,6 +216,7 @@ export default function NewJoineeSheet() {
   const [taExporting, setTaExporting] = useState(false)
   const [taEditMode, setTaEditMode] = useState(false)
   const [actionToast, setActionToast] = useState(null)
+  const [signingOffId, setSigningOffId] = useState(null)
   const isMountedRef = useRef(true)
   const fileInputRef = useRef(null)
 
@@ -359,11 +369,33 @@ export default function NewJoineeSheet() {
     setRows((prev) =>
       prev.map((row) => {
         if (row._id !== rowId) return row
-        updatedRow = {
+
+        let nextRow = {
           ...row,
           [field]: value,
         }
-        return updatedRow
+
+        // When asset requirement is not selected or NA, auto-set device fields (including peripherals) to NA
+        if (field === 'assetRequirement' && (!value || value === 'NA')) {
+          const DEVICE_FIELDS = [
+            'processor',
+            'operatingSystem',
+            'storage',
+            'ram',
+            'displaySize',
+            'graphicCard',
+            'peripherals',
+            'headPhone',
+            'mobilePhone',
+            'scienceSbu',
+          ]
+          DEVICE_FIELDS.forEach((key) => {
+            nextRow[key] = 'NA'
+          })
+        }
+
+        updatedRow = nextRow
+        return nextRow
       })
     )
     if (updatedRow) {
@@ -448,6 +480,46 @@ export default function NewJoineeSheet() {
       setError(message)
     } finally {
       setSavingId(null)
+    }
+  }
+
+  const handleSignOffRow = async (row) => {
+    if (!row?._id || row._id.startsWith('temp-')) {
+      setError('Please save the row before signing off.')
+      return
+    }
+    if (!row.beneficiaryDepartment?.trim()) {
+      setError('Beneficiary Department is required before sign off.')
+      return
+    }
+
+    setSigningOffId(row._id)
+    setError(null)
+    try {
+      const response = await NewJoineePayrollAPI.signOff(token, row._id)
+      const updatedSource = response.data?.source ?? null
+
+      if (updatedSource) {
+        setRows((prev) =>
+          prev.map((existing) =>
+            existing._id === updatedSource._id ? normalizeRow(updatedSource) : existing
+          )
+        )
+      }
+
+      showTransientMessage(
+        setActionToast,
+        response.message || 'Joinee signed off successfully.'
+      )
+    } catch (err) {
+      console.error('Failed to sign off joinee', err)
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : err?.message ?? 'Unable to sign off the selected joinee.'
+      setError(message)
+    } finally {
+      setSigningOffId(null)
     }
   }
 
@@ -825,10 +897,12 @@ export default function NewJoineeSheet() {
         role={role}
         isEditMode={editMode}
         savingId={savingId}
+        signingOffId={signingOffId}
         rowErrors={rowErrors}
         onFieldChange={handleFieldChange}
         onSaveRow={handleSaveRow}
         onDeleteRow={handleDeleteRow}
+        onSignOffRow={handleSignOffRow}
       />
 
       <section className="space-y-4">

@@ -12,6 +12,8 @@ const NUMERIC_FIELDS = new Set([
   'maxCTC',
 ])
 
+const HIRING_STATUS_OPTIONS = ['Active', 'Closed', 'Hold', 'NA']
+
 const getNumericWidth = (width) => {
   if (typeof width === 'number') {
     return width
@@ -51,6 +53,9 @@ const renderValue = (value) => {
     return Number.isNaN(value) ? '—' : value
   }
   const normalized = value.toString().trim()
+  if (normalized.toLowerCase() === 'na') {
+    return 'NA'
+  }
   return normalized.length > 0 ? normalized : '—'
 }
 
@@ -130,22 +135,40 @@ export default function TARequirementsTable({
                       return (
                         <td key={column.key} className="px-4 py-3 align-top text-sm text-slate-200">
                           {showEditControls ? (
-                            <input
-                              type={isNumeric ? 'number' : 'text'}
-                              value={value}
-                              step={isNumeric ? '0.01' : undefined}
-                              onChange={(event) =>
-                                onFieldChange(
-                                  row._id,
-                                  column.key,
-                                  isNumeric
-                                    ? parseFloat(event.target.value) || 0
-                                    : event.target.value
-                                )
-                              }
-                              style={buildInputStyle(column, value, isNumeric)}
-                              className="rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
-                            />
+                            column.key === 'hiringStatus' ? (
+                              <select
+                                value={value}
+                                onChange={(event) =>
+                                  onFieldChange(row._id, column.key, event.target.value)
+                                }
+                                style={buildInputStyle(column, value, false)}
+                                className="rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+                              >
+                                <option value="">Select Hiring Status</option>
+                                {HIRING_STATUS_OPTIONS.map((option) => (
+                                  <option key={option} value={option}>
+                                    {option}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <input
+                                type={isNumeric ? 'number' : 'text'}
+                                value={value}
+                                step={isNumeric ? '0.01' : undefined}
+                                onChange={(event) =>
+                                  onFieldChange(
+                                    row._id,
+                                    column.key,
+                                    isNumeric
+                                      ? parseFloat(event.target.value) || 0
+                                      : event.target.value
+                                  )
+                                }
+                                style={buildInputStyle(column, value, isNumeric)}
+                                className="rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+                              />
+                            )
                           ) : (
                             renderValue(row[column.key])
                           )}

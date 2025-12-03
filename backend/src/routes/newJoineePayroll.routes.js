@@ -8,6 +8,7 @@ const {
   createNewJoinee,
   updateNewJoinee,
   deleteNewJoinee,
+  signOffNewJoinee,
 } = require("../controllers/newJoineePayrollController");
 const { authenticate } = require("../middleware/authenticate");
 const { authorizeRole } = require("../middleware/authorize");
@@ -90,6 +91,16 @@ router.delete(
     validateRequest,
   ],
   deleteNewJoinee
+);
+
+router.post(
+  "/:id/sign-off",
+  [
+    authorizeRole("Admin", "HOD"),
+    param("id").isString().trim(),
+    validateRequest,
+  ],
+  signOffNewJoinee
 );
 
 module.exports = router;

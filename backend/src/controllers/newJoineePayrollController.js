@@ -27,6 +27,7 @@ const editableFields = [
   "ctcRange",
   "experienceRange",
   "newType",
+  "hiringStatus",
   "replacementEmployeeName",
   "productOrDomain",
   "assetRequirement",
@@ -34,11 +35,9 @@ const editableFields = [
   "operatingSystem",
   "storage",
   "ram",
-  "displaySize",
   "graphicCard",
   "peripherals",
   "headPhone",
-  "mobilePhone",
   "scienceSbu",
   "budgetAmount",
   "academy",
@@ -75,11 +74,9 @@ const columnDefinitions = [
   { header: "Operating System", key: "operatingSystem" },
   { header: "Storage (SSD)", key: "storage" },
   { header: "RAM", key: "ram" },
-  { header: "Display Size", key: "displaySize" },
   { header: "Graphic Card", key: "graphicCard" },
   { header: "Peripherals", key: "peripherals" },
   { header: "Head Phone", key: "headPhone" },
-  { header: "Mobile Phone", key: "mobilePhone" },
   { header: "Science (SBU)", key: "scienceSbu" },
   { header: "Budget Amount", key: "budgetAmount" },
   { header: "Academy %", key: "academy" },
@@ -730,6 +727,108 @@ async function uploadNewJoineeSheet(req, res) {
   }
 }
 
+async function signOffNewJoinee(req, res) {
+  try {
+    const { id } = req.params;
+    const { role, id: userId } = req.user;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid payroll entry identifier.",
+      });
+    }
+
+    if (role !== "HOD" && role !== "Admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Only HODs or Admins can perform sign-off.",
+      });
+    }
+
+    const record = await NewJoineePayroll.findById(id);
+
+    if (!record) {
+      return res.status(404).json({
+        success: false,
+        message: "Payroll entry not found.",
+      });
+    }
+
+    if (record.signedOff) {
+      return res.status(200).json({
+        success: true,
+        message: "This entry is already signed off.",
+        data: record,
+      });
+    }
+
+    if (!record.beneficiaryDepartment) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Beneficiary Department is required before sign off. Please fill it in and save the row.",
+      });
+    }
+
+    const beneficiaryMeta = await findDepartmentMetaFromLabel(
+      record.beneficiaryDepartment
+    );
+
+    if (!beneficiaryMeta) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Unable to resolve the beneficiary department. Please ensure it matches a valid Department.",
+      });
+    }
+
+    const payloadForBeneficiary = {
+      ...record.toObject(),
+      _id: undefined,
+      department: beneficiaryMeta.departmentId,
+      departmentKey: beneficiaryMeta.departmentKey,
+      departmentLabel: beneficiaryMeta.departmentLabel,
+      updatedBy: userId,
+      createdBy: userId,
+      signedOff: false,
+      signedOffAt: null,
+      signedOffBy: null,
+    };
+
+    const beneficiaryRecord = await NewJoineePayroll.create(
+      normalizeDates(payloadForBeneficiary)
+    );
+
+    record.signedOff = true;
+    record.signedOffAt = new Date();
+    record.signedOffBy = userId;
+    if (!record.hiringStatus) {
+      record.hiringStatus = "Signed Off";
+    }
+    await record.save();
+
+    await syncTARequirementsForRoles([
+      record.designation,
+      beneficiaryRecord.designation,
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      message: "Joinee signed off successfully.",
+      data: {
+        source: record,
+        beneficiary: beneficiaryRecord,
+      },
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message || "Unable to sign off the selected joinee.",
+    });
+  }
+}
+
 module.exports = {
   listNewJoinees,
   exportNewJoineeSheet,
@@ -737,5 +836,6 @@ module.exports = {
   createNewJoinee,
   updateNewJoinee,
   deleteNewJoinee,
+  signOffNewJoinee,
 };
 

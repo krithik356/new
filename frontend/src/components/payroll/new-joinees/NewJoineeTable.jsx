@@ -318,6 +318,7 @@ const GPU_OPTIONS = ['Integrated', 'NVIDIA GTX 1650', 'NVIDIA RTX 3060', 'NVIDIA
 const PERIPHERAL_OPTIONS = ['Mouse', 'Keyboard', 'Headset', 'Docking Station', 'HDMI Adapter', 'NA', 'Other']
 const HEADPHONE_OPTIONS = ['NA', 'Jabra', 'Sony', 'Bose', 'Apple AirPods', 'Logitech', 'Other']
 const MOBILE_PHONE_OPTIONS = ['NA', 'iPhone', 'Android', 'Samsung', 'OnePlus', 'Pixel', 'Other']
+const HIRING_STATUS_OPTIONS = ['Active', 'Closed', 'Hold', 'NA']
 
 const FIELD_OPTIONS = {
   workMode: ['WFO', 'WFH', 'Hybrid'],
@@ -329,6 +330,7 @@ const FIELD_OPTIONS = {
   workLocation: WORK_LOCATION_OPTIONS,
   employmentType: EMPLOYMENT_TYPE_OPTIONS,
   productOrDomain: PRODUCT_DOMAIN_OPTIONS,
+  hiringStatus: HIRING_STATUS_OPTIONS,
   assetRequirement: ASSET_REQUIREMENT_OPTIONS,
   processor: PROCESSOR_OPTIONS,
   operatingSystem: OPERATING_SYSTEM_OPTIONS,
@@ -351,6 +353,9 @@ const renderValue = (value) => {
     return Number.isNaN(value) ? '—' : value
   }
   const normalized = value.toString().trim()
+  if (normalized.toLowerCase() === 'na') {
+    return 'NA'
+  }
   return normalized.length > 0 ? normalized : '—'
 }
 
@@ -390,11 +395,13 @@ export default function NewJoineeTable({
   rows,
   loading,
   savingId,
+  signingOffId,
   role,
   isEditMode = false,
   onFieldChange,
   onSaveRow,
   onDeleteRow,
+  onSignOffRow,
   rowErrors = {},
 }) {
   const canDelete = role === 'Admin' || role === 'HOD'
@@ -445,6 +452,7 @@ export default function NewJoineeTable({
             ) : (
               rows.map((row) => {
                 const rowError = rowErrors[row._id]
+                const isSignedOff = Boolean(row.signedOff)
                 return (
                   <tr
                     key={row._id}
@@ -512,13 +520,95 @@ export default function NewJoineeTable({
                           return
                         }
 
+                        // When asset requirement is not selected or NA, auto-set device fields to NA
+                        if (column.key === 'assetRequirement') {
+                          onFieldChange(row._id, 'assetRequirement', newValue)
+                          if (!newValue || newValue === 'NA') {
+                            const DEVICE_FIELDS = [
+                              'processor',
+                              'operatingSystem',
+                              'storage',
+                              'ram',
+                              'displaySize',
+                              'graphicCard',
+                              'peripherals',
+                              'headPhone',
+                              'mobilePhone',
+                              'scienceSbu',
+                            ]
+                            DEVICE_FIELDS.forEach((fieldKey) => {
+                              onFieldChange(row._id, fieldKey, 'NA')
+                            })
+                          }
+                          return
+                        }
+
                         onFieldChange(row._id, column.key, newValue)
+                      }
+
+                      // Parsed peripherals array for checkbox-style multi-select
+                      const peripheralValues =
+                        column.key === 'peripherals'
+                          ? (value || '')
+                              .split(',')
+                              .map((item) => item.trim())
+                              .filter((item) => item.length > 0)
+                              // Normalize any case-varied "na" to "NA"
+                              .map((item) =>
+                                item.toLowerCase() === 'na' ? 'NA' : item
+                              )
+                          : []
+
+                      const togglePeripheral = (option) => {
+                        let next = peripheralValues.slice()
+                        const isNaOption = option === 'NA'
+
+                        if (next.includes(option)) {
+                          // Toggling off
+                          next = next.filter((item) => item !== option)
+                        } else {
+                          // Toggling on
+                          if (isNaOption) {
+                            // Selecting NA clears all others
+                            next = ['NA']
+                          } else {
+                            // Selecting a real peripheral removes NA if present
+                            next = next.filter((item) => item !== 'NA')
+                            next.push(option)
+                          }
+                        }
+
+                        onFieldChange(row._id, 'peripherals', next.join(', '))
                       }
 
                       return (
                         <td key={column.key} className="px-4 py-3 align-top text-sm text-slate-200">
                           {showEditControls ? (
-                            options ? (
+                            // Peripherals: checkbox-style multi-select
+                            column.key === 'peripherals' ? (
+                              <div
+                                className="flex flex-wrap gap-2 rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2"
+                                style={buildInputStyle(column, value, false)}
+                              >
+                                {PERIPHERAL_OPTIONS.map((option) => {
+                                  const checked = peripheralValues.includes(option)
+                                  return (
+                                    <label
+                                      key={option}
+                                      className="flex items-center gap-1 text-xs text-slate-100"
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        className="h-3 w-3 rounded border-slate-700 bg-slate-900 text-emerald-400 focus:ring-emerald-500"
+                                        checked={checked}
+                                        onChange={() => togglePeripheral(option)}
+                                      />
+                                      <span>{option}</span>
+                                    </label>
+                                  )
+                                })}
+                              </div>
+                            ) : options ? (
                               <select
                                 value={value}
                                 onChange={handleChange}
@@ -558,6 +648,20 @@ export default function NewJoineeTable({
                         >
                           {row._id.startsWith('temp-') ? 'Save' : 'Update'}
                         </button>
+                        {role === 'HOD' && !row._id.startsWith('temp-') && (
+                          <button
+                            type="button"
+                            onClick={() => onSignOffRow(row)}
+                            disabled={
+                              isSignedOff ||
+                              signingOffId === row._id ||
+                              !row.beneficiaryDepartment
+                            }
+                            className="rounded-xl border border-cyan-500/40 bg-cyan-500/20 px-3 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-cyan-200 transition hover:bg-cyan-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {isSignedOff ? 'Signed Off' : 'Sign Off'}
+                          </button>
+                        )}
                         {canDelete && row._id && !row._id.startsWith('temp-') ? (
                           <button
                             type="button"

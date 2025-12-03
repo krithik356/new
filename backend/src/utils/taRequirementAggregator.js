@@ -187,6 +187,9 @@ const aggregateRoleRecords = (roleName, records = []) => {
     hireType: joinValues(
       records.map((record) => record.newType || record.type)
     ),
+    hiringStatus: joinValues(
+      records.map((record) => record.hiringStatus)
+    ),
     replacementEmployeeName: joinValues(
       records.map((record) => record.replacementEmployeeName)
     ),

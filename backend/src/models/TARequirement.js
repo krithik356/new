@@ -63,6 +63,7 @@ const TARequirementSchema = new Schema(
     },
     experienceRange: stringField,
     hireType: stringField,
+    hiringStatus: stringField,
     replacementEmployeeName: stringField,
     productWorkingOn: stringField,
     jdLink: stringField,

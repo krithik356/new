@@ -57,6 +57,7 @@ const NewJoineePayrollSchema = new Schema(
     mobilePhone: stringField,
     scienceSbu: stringField,
     budgetAmount: stringField,
+    hiringStatus: stringField,
     academy: stringField,
     intensive: stringField,
     niatBatch1: stringField,
@@ -66,6 +67,19 @@ const NewJoineePayrollSchema = new Schema(
     common: {
       ...stringField,
       alias: "comments",
+    },
+    signedOff: {
+      type: Boolean,
+      default: false,
+    },
+    signedOffAt: {
+      type: Date,
+      default: null,
+    },
+    signedOffBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
     },
     createdBy: {
       type: Schema.Types.ObjectId,

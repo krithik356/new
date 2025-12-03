@@ -34,6 +34,7 @@ const editableFields = [
   "beneficiaryDepartment",
   "experienceRange",
   "hireType",
+  "hiringStatus",
   "replacementEmployeeName",
   "productWorkingOn",
   "jdLink",
@@ -168,10 +169,23 @@ async function listTARequirements(req, res) {
 
     let data = await TARequirement.find(filter).sort({ roleName: 1 }).lean();
 
+    // If there are no TA records yet, rebuild everything from New Joinees
     if (data.length === 0) {
       const rebuilt = await syncAllTARequirements();
       if (rebuilt.length > 0) {
         data = await TARequirement.find(filter).sort({ roleName: 1 }).lean();
+      }
+    } else {
+      // Backfill newer fields like hiringStatus for existing TA records
+      const hasMissingHiringStatus = data.some(
+        (item) => !item.hiringStatus || item.hiringStatus.trim().length === 0
+      );
+
+      if (hasMissingHiringStatus) {
+        const rebuilt = await syncAllTARequirements();
+        if (rebuilt.length > 0) {
+          data = await TARequirement.find(filter).sort({ roleName: 1 }).lean();
+        }
       }
     }
 
