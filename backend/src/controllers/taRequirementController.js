@@ -15,6 +15,8 @@ const numericFields = [
   "januaryPositions",
   "februaryPositions",
   "marchPositions",
+  "minCTC",
+  "maxCTC",
 ];
 
 const editableFields = [
@@ -22,6 +24,8 @@ const editableFields = [
   "hiringManagerName",
   "roleName",
   "ctcRange",
+  "minCTC",
+  "maxCTC",
   "workLocation",
   "employmentType",
   "employmentTypeRemarks",

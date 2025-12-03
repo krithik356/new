@@ -8,10 +8,8 @@ const COLUMN_DEFINITIONS = [
   { header: "Jan Positions", key: "januaryPositions" },
   { header: "Feb Positions", key: "februaryPositions" },
   { header: "March Positions", key: "marchPositions" },
-  {
-    header: "CTC Range in Lakhs (Including Variable, Retention, Bonus etc)",
-    key: "ctcRange",
-  },
+  { header: "Min CTC (LPA)", key: "minCTC" },
+  { header: "Max CTC (LPA)", key: "maxCTC" },
   { header: "Work Location", key: "workLocation" },
   { header: "Employment Type", key: "employmentType" },
   { header: "Employment Type Remarks", key: "employmentTypeRemarks" },
@@ -67,7 +65,7 @@ async function buildTARequirementWorkbook(records = []) {
     records.forEach((record) => {
       const row = {};
       COLUMN_DEFINITIONS.forEach(({ key }) => {
-        if (key === "noOfPositions" || key === "januaryPositions" || key === "februaryPositions" || key === "marchPositions") {
+        if (key === "noOfPositions" || key === "januaryPositions" || key === "februaryPositions" || key === "marchPositions" || key === "minCTC" || key === "maxCTC") {
           row[key] = record[key] ?? 0;
         } else {
           row[key] = record[key] ?? "";

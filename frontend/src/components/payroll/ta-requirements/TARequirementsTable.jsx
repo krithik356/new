@@ -8,6 +8,8 @@ const NUMERIC_FIELDS = new Set([
   'januaryPositions',
   'februaryPositions',
   'marchPositions',
+  'minCTC',
+  'maxCTC',
 ])
 
 const getNumericWidth = (width) => {
@@ -120,20 +122,24 @@ export default function TARequirementsTable({
                     className="border-t border-slate-900/60 hover:bg-slate-900/40"
                   >
                     {columns.map((column) => {
-                      const value = row[column.key] ?? ''
                       const isNumeric = isNumericField(column.key)
+                      const rawValue = row[column.key]
+                      const value = isNumeric 
+                        ? (rawValue === null || rawValue === undefined ? '' : rawValue)
+                        : (rawValue ?? '')
                       return (
                         <td key={column.key} className="px-4 py-3 align-top text-sm text-slate-200">
                           {showEditControls ? (
                             <input
                               type={isNumeric ? 'number' : 'text'}
                               value={value}
+                              step={isNumeric ? '0.01' : undefined}
                               onChange={(event) =>
                                 onFieldChange(
                                   row._id,
                                   column.key,
                                   isNumeric
-                                    ? parseInt(event.target.value, 10) || 0
+                                    ? parseFloat(event.target.value) || 0
                                     : event.target.value
                                 )
                               }

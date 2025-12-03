@@ -33,6 +33,49 @@ const uniqueValues = (values = []) => {
 
 const joinValues = (values = []) => uniqueValues(values).join(", ");
 
+const parseCTCRange = (ctcRangeString) => {
+  if (!ctcRangeString || typeof ctcRangeString !== 'string') {
+    return { min: null, max: null };
+  }
+
+  // Extract all numbers from the string (handles formats like "4–6 LPA", "6-9 LPA", "10–14 LPA", etc.)
+  const numbers = ctcRangeString.match(/\d+(?:\.\d+)?/g);
+  if (!numbers || numbers.length === 0) {
+    return { min: null, max: null };
+  }
+
+  // Convert to numbers and filter out invalid values
+  const numericValues = numbers
+    .map((n) => parseFloat(n))
+    .filter((n) => !Number.isNaN(n));
+
+  if (numericValues.length === 0) {
+    return { min: null, max: null };
+  }
+
+  return {
+    min: Math.min(...numericValues),
+    max: Math.max(...numericValues),
+  };
+};
+
+const calculateCTCRangeMinMax = (records = []) => {
+  const allMins = [];
+  const allMaxs = [];
+
+  records.forEach((record) => {
+    if (!record?.ctcRange) return;
+    const parsed = parseCTCRange(record.ctcRange);
+    if (parsed.min !== null) allMins.push(parsed.min);
+    if (parsed.max !== null) allMaxs.push(parsed.max);
+  });
+
+  return {
+    minCTC: allMins.length > 0 ? Math.min(...allMins) : null,
+    maxCTC: allMaxs.length > 0 ? Math.max(...allMaxs) : null,
+  };
+};
+
 const collectKeys = (values = []) =>
   uniqueValues(values.map((value) => normalizeDepartmentKey(value))).filter(
     Boolean
@@ -110,6 +153,8 @@ const aggregateRoleRecords = (roleName, records = []) => {
     records.map((record) => record.beneficiaryDepartment)
   );
 
+  const ctcRangeMinMax = calculateCTCRangeMinMax(records);
+
   return {
     roleName,
     roleNameNormalized: normalizeRoleName(roleName),
@@ -120,6 +165,8 @@ const aggregateRoleRecords = (roleName, records = []) => {
     ...monthlyCounts,
     noOfPositions,
     ctcRange: joinValues(records.map((record) => record.ctcRange)),
+    minCTC: ctcRangeMinMax.minCTC ?? 0,
+    maxCTC: ctcRangeMinMax.maxCTC ?? 0,
     workLocation: joinValues(records.map((record) => record.workLocation)),
     employmentType: joinValues(records.map((record) => record.employmentType)),
     employmentTypeRemarks: joinValues(records.map((record) => record.remarks)),

@@ -31,6 +31,8 @@ const TARequirementSchema = new Schema(
     februaryPositions: numberField,
     marchPositions: numberField,
     ctcRange: stringField,
+    minCTC: numberField,
+    maxCTC: numberField,
     workLocation: stringField,
     employmentType: stringField,
     employmentTypeRemarks: stringField,

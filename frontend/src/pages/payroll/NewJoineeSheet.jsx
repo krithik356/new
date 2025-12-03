@@ -58,11 +58,8 @@ const TA_COLUMN_DEFINITIONS = [
   { key: 'januaryPositions', label: 'Jan Positions', width: '160px' },
   { key: 'februaryPositions', label: 'Feb Positions', width: '160px' },
   { key: 'marchPositions', label: 'March Positions', width: '160px' },
-  {
-    key: 'ctcRange',
-    label: 'CTC Range in Lakhs (Including Variable, Retention, Bonus etc)',
-    width: '360px',
-  },
+  { key: 'minCTC', label: 'Min CTC (LPA)', width: '160px' },
+  { key: 'maxCTC', label: 'Max CTC (LPA)', width: '160px' },
   { key: 'workLocation', label: 'Work Location', width: '200px' },
   { key: 'employmentType', label: 'Employment Type', width: '200px' },
   {
@@ -277,6 +274,26 @@ export default function NewJoineeSheet() {
     }
   }, [activeDepartment, isAdmin, token])
 
+  const parseCTCRange = (ctcRangeString) => {
+    if (!ctcRangeString || typeof ctcRangeString !== 'string') {
+      return { min: null, max: null }
+    }
+    const numbers = ctcRangeString.match(/\d+(?:\.\d+)?/g)
+    if (!numbers || numbers.length === 0) {
+      return { min: null, max: null }
+    }
+    const numericValues = numbers
+      .map((n) => parseFloat(n))
+      .filter((n) => !Number.isNaN(n))
+    if (numericValues.length === 0) {
+      return { min: null, max: null }
+    }
+    return {
+      min: Math.min(...numericValues),
+      max: Math.max(...numericValues),
+    }
+  }
+
   const loadTaRequirements = useCallback(async () => {
     if (!isMountedRef.current || !token) {
       return
@@ -292,7 +309,21 @@ export default function NewJoineeSheet() {
       if (!isMountedRef.current) {
         return
       }
-      setTaRows(response.data ?? [])
+      // Parse existing ctcRange values if minCTC/maxCTC are missing
+      const rows = (response.data ?? []).map((row) => {
+        if ((!row.minCTC && row.minCTC !== 0) || (!row.maxCTC && row.maxCTC !== 0)) {
+          if (row.ctcRange) {
+            const parsed = parseCTCRange(row.ctcRange)
+            return {
+              ...row,
+              minCTC: parsed.min ?? 0,
+              maxCTC: parsed.max ?? 0,
+            }
+          }
+        }
+        return row
+      })
+      setTaRows(rows)
     } catch (err) {
       if (!isMountedRef.current) {
         return
