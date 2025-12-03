@@ -18,9 +18,9 @@ const COLUMN_DEFINITIONS = [
   { key: 'topDepartment', label: 'Top Department', width: '180px' },
   { key: 'type', label: 'Type', width: '140px' },
   { key: 'sourceDepartment', label: 'Source Department', width: '200px' },
-  { key: 'beneficiaryDepartment', label: 'Benficiary Department', width: '220px' },
+  { key: 'beneficiaryDepartment', label: 'Beneficiary Department', width: '220px' },
   { key: 'sourceHod', label: 'Source HOD', width: '180px' },
-  { key: 'beneficiaryHod', label: 'Benficiary HOD', width: '200px' },
+  { key: 'beneficiaryHod', label: 'Beneficiary HOD', width: '200px' },
   { key: 'workMode', label: 'WFO/WFH', width: '140px' },
   { key: 'universityDetails', label: 'University Details', width: '200px' },
   { key: 'location', label: 'Location', width: '180px' },
@@ -119,6 +119,7 @@ export default function ExistingEmployeesSheet() {
   const [exporting, setExporting] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState(null)
+  const [editMode, setEditMode] = useState(false)
   const [activeDepartment, setActiveDepartment] = useState(
     role === 'Admin' ? 'all' : 'hod'
   )
@@ -196,6 +197,7 @@ export default function ExistingEmployeesSheet() {
   }
 
   const handleFieldChange = (rowId, field, value) => {
+    if (!editMode || (role !== 'Admin' && role !== 'HOD')) return
     let updatedRow = null
     setRows((prev) =>
       prev.map((row) => {
@@ -240,6 +242,7 @@ export default function ExistingEmployeesSheet() {
   }
 
   const handleSaveRow = async (row) => {
+    if (!editMode || (role !== 'Admin' && role !== 'HOD')) return
     if (!row.empName?.trim()) {
       setError('Employee name is required before saving.')
       return
@@ -286,6 +289,7 @@ export default function ExistingEmployeesSheet() {
   }
 
   const handleDeleteRow = async (row) => {
+    if (!editMode || (role !== 'Admin' && role !== 'HOD')) return
     if (!row?._id || row._id.startsWith('temp-')) {
       setRows((prev) => prev.filter((item) => item._id !== row._id))
       setRowErrors((prev) => {
@@ -317,6 +321,10 @@ export default function ExistingEmployeesSheet() {
   }
 
   const handleAddRow = () => {
+    // Automatically enable edit mode when adding a row (if user has permission)
+    if ((role === 'Admin' || role === 'HOD') && !editMode) {
+      setEditMode(true)
+    }
     const departmentKey =
       isAdmin && activeDepartment !== 'all' ? activeDepartment : ''
     const newRow = createEmptyRow(role, departmentKey)
@@ -365,11 +373,16 @@ export default function ExistingEmployeesSheet() {
       await loadRows()
     } catch (err) {
       console.error('Failed to upload existing employee sheet', err)
-      const message =
-        err instanceof ApiError
-          ? err.message
-          : err?.message ?? 'Unable to upload the existing employee sheet.'
-      setError(message)
+      const payload = err instanceof ApiError ? err.details : null
+      if (payload?.errors?.length) {
+        setError(payload.errors.join('\n'))
+      } else {
+        const message =
+          err instanceof ApiError
+            ? err.message
+            : err?.message ?? 'Unable to upload the existing employee sheet.'
+        setError(message)
+      }
     } finally {
       setUploading(false)
     }
@@ -450,17 +463,28 @@ export default function ExistingEmployeesSheet() {
 
       <div className="flex items-center justify-between rounded-3xl border border-slate-900/60 bg-slate-950/60 px-4 py-3 text-sm text-slate-400">
         <p>{sheetDescription}</p>
-        <button
-          type="button"
-          onClick={loadRows}
-          className="text-xs uppercase tracking-[0.4em] text-emerald-300 underline decoration-dotted underline-offset-4"
-        >
-          Refresh
-        </button>
+        <div className="flex items-center gap-3">
+          {(role === 'Admin' || role === 'HOD') && (
+            <button
+              type="button"
+              onClick={() => setEditMode(!editMode)}
+              className="inline-flex items-center justify-center rounded-2xl border border-blue-400/50 bg-blue-500/10 px-4 py-2 text-xs font-semibold text-blue-200 transition hover:bg-blue-500/20 hover:text-blue-100"
+            >
+              {editMode ? 'View Mode' : 'Edit'}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={loadRows}
+            className="text-xs uppercase tracking-[0.4em] text-emerald-300 underline decoration-dotted underline-offset-4"
+          >
+            Refresh
+          </button>
+        </div>
       </div>
 
       {error ? (
-        <div className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+        <div className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200 whitespace-pre-line">
           {error}
         </div>
       ) : null}
@@ -470,6 +494,7 @@ export default function ExistingEmployeesSheet() {
         rows={visibleRows}
         loading={loading}
         role={role}
+        isEditMode={editMode}
         savingId={savingId}
         rowErrors={rowErrors}
         onFieldChange={handleFieldChange}

@@ -44,9 +44,9 @@ const columnDefinitions = [
   { header: "Top Department", key: "topDepartment" },
   { header: "Type", key: "type" },
   { header: "Source Department", key: "sourceDepartment" },
-  { header: "Benficiary Department", key: "beneficiaryDepartment" },
+  { header: "Beneficiary Department", key: "beneficiaryDepartment" },
   { header: "Source HOD", key: "sourceHod" },
-  { header: "Benficiary HOD", key: "beneficiaryHod" },
+  { header: "Beneficiary HOD", key: "beneficiaryHod" },
   { header: "WFO/WFH", key: "workMode" },
   { header: "Employee Type", key: "employeeType" },
   { header: "University Details", key: "universityDetails" },
@@ -218,19 +218,52 @@ function normalizeDates(payload) {
   return cloned;
 }
 
+function normalizeHeaderValue(cell) {
+  if (!cell) {
+    return "";
+  }
+  const rawValue =
+    typeof cell === "string"
+      ? cell
+      : cell?.text ?? cell?.result ?? cell?.toString?.() ?? "";
+  return rawValue
+    .toString()
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
 function validateWorksheetColumns(worksheet) {
   const headerRow = worksheet.getRow(1);
-  const receivedHeaders = headerRow.values
-    .slice(1)
-    .map((cell) => (cell || "").toString().trim());
+  const receivedHeaders = headerRow.values.slice(1);
 
   if (receivedHeaders.length !== columnDefinitions.length) {
-    throw new Error("Columns do not match the required format.");
+    const difference = receivedHeaders.length - columnDefinitions.length;
+    const hint =
+      difference > 0
+        ? `${Math.abs(difference)} extra column(s)`
+        : `${Math.abs(difference)} missing column(s)`;
+    throw new Error(
+      `Sheet header has ${receivedHeaders.length} column(s) but ${columnDefinitions.length} are required (${hint}). Please download the latest template using "Generate Sheet".`
+    );
   }
 
   columnDefinitions.forEach((column, index) => {
-    if (receivedHeaders[index] !== column.header) {
-      throw new Error("Columns do not match the required format.");
+    const expected = normalizeHeaderValue(column.header);
+    const actual = normalizeHeaderValue(receivedHeaders[index]);
+    if (expected !== actual) {
+      const displayActual =
+        typeof receivedHeaders[index] === "object"
+          ? receivedHeaders[index]?.text ??
+            receivedHeaders[index]?.result ??
+            receivedHeaders[index]?.toString?.() ??
+            ""
+          : receivedHeaders[index] ?? "";
+      throw new Error(
+        `Column ${index + 1} is "${displayActual}" but should be "${
+          column.header
+        }". Please ensure the header row matches the generated template exactly (formatting such as bold/italics is ignored).`
+      );
     }
   });
 }
