@@ -395,13 +395,11 @@ export default function NewJoineeTable({
   rows,
   loading,
   savingId,
-  signingOffId,
   role,
   isEditMode = false,
   onFieldChange,
   onSaveRow,
   onDeleteRow,
-  onSignOffRow,
   rowErrors = {},
 }) {
   const canDelete = role === 'Admin' || role === 'HOD'
@@ -452,7 +450,6 @@ export default function NewJoineeTable({
             ) : (
               rows.map((row) => {
                 const rowError = rowErrors[row._id]
-                const isSignedOff = Boolean(row.signedOff)
                 return (
                   <tr
                     key={row._id}
@@ -648,20 +645,6 @@ export default function NewJoineeTable({
                         >
                           {row._id.startsWith('temp-') ? 'Save' : 'Update'}
                         </button>
-                        {role === 'HOD' && !row._id.startsWith('temp-') && (
-                          <button
-                            type="button"
-                            onClick={() => onSignOffRow(row)}
-                            disabled={
-                              isSignedOff ||
-                              signingOffId === row._id ||
-                              !row.beneficiaryDepartment
-                            }
-                            className="rounded-xl border border-cyan-500/40 bg-cyan-500/20 px-3 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-cyan-200 transition hover:bg-cyan-500/30 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            {isSignedOff ? 'Signed Off' : 'Sign Off'}
-                          </button>
-                        )}
                         {canDelete && row._id && !row._id.startsWith('temp-') ? (
                           <button
                             type="button"

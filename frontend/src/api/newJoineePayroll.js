@@ -30,12 +30,6 @@ export const NewJoineePayrollAPI = {
       token,
     }),
 
-  signOff: (token, id) =>
-    request(`/api/payroll/new-joinees/${id}/sign-off`, {
-      method: 'POST',
-      token,
-    }),
-
   exportSheet: async (token, { department } = {}) => {
     const params = new URLSearchParams()
     if (department && department !== 'all') {

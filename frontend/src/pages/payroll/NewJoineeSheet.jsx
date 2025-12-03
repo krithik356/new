@@ -216,7 +216,6 @@ export default function NewJoineeSheet() {
   const [taExporting, setTaExporting] = useState(false)
   const [taEditMode, setTaEditMode] = useState(false)
   const [actionToast, setActionToast] = useState(null)
-  const [signingOffId, setSigningOffId] = useState(null)
   const isMountedRef = useRef(true)
   const fileInputRef = useRef(null)
 
@@ -480,46 +479,6 @@ export default function NewJoineeSheet() {
       setError(message)
     } finally {
       setSavingId(null)
-    }
-  }
-
-  const handleSignOffRow = async (row) => {
-    if (!row?._id || row._id.startsWith('temp-')) {
-      setError('Please save the row before signing off.')
-      return
-    }
-    if (!row.beneficiaryDepartment?.trim()) {
-      setError('Beneficiary Department is required before sign off.')
-      return
-    }
-
-    setSigningOffId(row._id)
-    setError(null)
-    try {
-      const response = await NewJoineePayrollAPI.signOff(token, row._id)
-      const updatedSource = response.data?.source ?? null
-
-      if (updatedSource) {
-        setRows((prev) =>
-          prev.map((existing) =>
-            existing._id === updatedSource._id ? normalizeRow(updatedSource) : existing
-          )
-        )
-      }
-
-      showTransientMessage(
-        setActionToast,
-        response.message || 'Joinee signed off successfully.'
-      )
-    } catch (err) {
-      console.error('Failed to sign off joinee', err)
-      const message =
-        err instanceof ApiError
-          ? err.message
-          : err?.message ?? 'Unable to sign off the selected joinee.'
-      setError(message)
-    } finally {
-      setSigningOffId(null)
     }
   }
 
@@ -897,12 +856,10 @@ export default function NewJoineeSheet() {
         role={role}
         isEditMode={editMode}
         savingId={savingId}
-        signingOffId={signingOffId}
         rowErrors={rowErrors}
         onFieldChange={handleFieldChange}
         onSaveRow={handleSaveRow}
         onDeleteRow={handleDeleteRow}
-        onSignOffRow={handleSignOffRow}
       />
 
       <section className="space-y-4">
