@@ -136,6 +136,35 @@ const parsePercentageValue = (value) => {
   return parsed
 }
 
+const buildSearchableText = (row) => {
+  const fieldsToIndex = [
+    'employeeName',
+    'empId',
+    'designation',
+    'departmentLabel',
+    'topDepartment',
+    'sourceDepartment',
+    'beneficiaryDepartment',
+    'sourceHod',
+    'beneficiaryHod',
+    'workLocation',
+    'employmentType',
+    'remarks',
+    'ctcRange',
+    'experienceRange',
+    'newType',
+    'replacementEmployeeName',
+    'productOrDomain',
+    'assetRequirement',
+  ]
+
+  return fieldsToIndex
+    .map((field) => row[field])
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+}
+
 const validatePercentageRow = (row) => {
   const values = PERCENTAGE_FIELDS.map((field) =>
     parsePercentageValue(row[field])
@@ -200,6 +229,7 @@ export default function NewJoineeSheet() {
   const [rowErrors, setRowErrors] = useState({})
   const [error, setError] = useState(null)
   const [successMessage, setSuccessMessage] = useState(null)
+  const [search, setSearch] = useState('')
   const [activeDepartment, setActiveDepartment] = useState(
     role === 'Admin' ? 'all' : 'hod'
   )
@@ -744,11 +774,18 @@ export default function NewJoineeSheet() {
     return rows
   }, [isAdmin, isSalesListingMode, mode, rows])
 
-  const salesFilterActive = isAdmin && isSalesListingMode && salesScopedRows.length > 0
-  const visibleRows =
-    isAdmin && (salesFilterActive || !isSalesListingMode)
-      ? salesScopedRows
-      : rows
+  const hasTempRow = rows.some((row) => row._id?.startsWith('temp-'))
+  const salesFilterActive =
+    isAdmin && isSalesListingMode && salesScopedRows.length > 0 && !hasTempRow
+  const visibleRows = salesFilterActive ? salesScopedRows : rows
+
+  const searchableRows = useMemo(() => {
+    if (!search.trim()) {
+      return visibleRows
+    }
+    const query = search.trim().toLowerCase()
+    return visibleRows.filter((row) => buildSearchableText(row).includes(query))
+  }, [search, visibleRows])
 
   const taScopedRows = useMemo(() => {
     if (!isAdmin || !isSalesListingMode) {
@@ -848,9 +885,25 @@ export default function NewJoineeSheet() {
         </div>
       ) : null}
 
+      <div className="flex flex-col gap-4 rounded-3xl border border-slate-900/70 bg-slate-950/60 px-4 py-4 text-sm text-slate-300">
+        <div className="flex flex-col gap-2">
+          <label className="text-xs uppercase tracking-[0.4em] text-slate-500" htmlFor="new-joinee-search">
+            Search
+          </label>
+          <input
+            id="new-joinee-search"
+            type="search"
+            placeholder="Search by name, department or HOD"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            className="w-full rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-2 text-sm text-slate-100 shadow-inner shadow-black/30 focus:border-emerald-400/80 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+          />
+        </div>
+      </div>
+
       <NewJoineeTable
         columns={COLUMN_DEFINITIONS}
-        rows={visibleRows}
+        rows={searchableRows}
         loading={loading}
         role={role}
         isEditMode={editMode}

@@ -2,6 +2,8 @@ const mongoose = require("mongoose");
 const ExcelJS = require("exceljs");
 const { ExistingEmployeePayroll } = require("../models/ExistingEmployeePayroll");
 const { Department } = require("../models/Department");
+const { User } = require("../models/User");
+const { SignOffRequest } = require("../models/SignOffRequest");
 const {
   buildExistingEmployeeWorkbook,
 } = require("../utils/existingEmployeeSheetExporter");
@@ -198,6 +200,11 @@ function validatePercentageAllocation(payload) {
   }
 }
 
+/**
+ * Picks editable fields from request body
+ * @param {Object} body - Request body object
+ * @returns {Object} Object containing only editable fields
+ */
 function pickEditableFields(body) {
   return editableFields.reduce((acc, field) => {
     if (body[field] !== undefined) {
@@ -299,6 +306,16 @@ function mapRowToPayload(row) {
 
 async function listExistingEmployees(req, res) {
   try {
+    // Verify model is loaded
+    if (!ExistingEmployeePayroll || typeof ExistingEmployeePayroll.find !== "function") {
+      console.error("FATAL: ExistingEmployeePayroll model not loaded correctly!");
+      console.error("Model value:", ExistingEmployeePayroll);
+      return res.status(500).json({
+        success: false,
+        message: "Server configuration error. Please restart the server.",
+      });
+    }
+
     const { role, department: userDepartment } = req.user;
     const { department: queryDepartment } = req.query;
 
@@ -306,13 +323,56 @@ async function listExistingEmployees(req, res) {
 
     if (role === "HOD" || role === "DataFiller") {
       if (!userDepartment) {
-        return res.status(400).json({
-          success: false,
+        return res.status(200).json({
+          success: true,
+          data: [],
           message: "Department mapping missing for current HOD.",
         });
       }
 
-      filter.department = userDepartment;
+      const { id: userId } = req.user;
+
+      // HOD sees:
+      // 1. Their own department's records
+      // 2. Pending sign-offs targeted to their department (to accept/reject)
+      // 3. Records they requested sign-off for (to see status and edit/delete)
+      const pendingSignOffs = await SignOffRequest.find({
+        targetDepartment: userDepartment,
+        status: "pending",
+      })
+        .select("payrollRecord")
+        .lean();
+
+      const requestedSignOffs = await SignOffRequest.find({
+        requestedBy: userId,
+      })
+        .select("payrollRecord")
+        .lean();
+
+      const pendingPayrollIds = pendingSignOffs.map((s) => s.payrollRecord);
+      const requestedPayrollIds = requestedSignOffs.map((s) => s.payrollRecord);
+
+      // Combine all IDs that should be visible
+      const allVisibleIds = [
+        ...new Set([
+          ...pendingPayrollIds.map((id) => id.toString()),
+          ...requestedPayrollIds.map((id) => id.toString()),
+        ]),
+      ];
+
+      if (allVisibleIds.length > 0) {
+        filter.$or = [
+          { department: userDepartment },
+          { _id: { $in: allVisibleIds.map((id) => new mongoose.Types.ObjectId(id)) } },
+        ];
+      } else {
+        filter.department = userDepartment;
+      }
+    } else if (role === "Admin") {
+      // Admin sees all records, optionally filtered by queryDepartment
+      if (queryDepartment && queryDepartment !== "all") {
+        filter.departmentKey = normalizeDepartmentKey(queryDepartment);
+      }
     } else if (queryDepartment) {
       filter.departmentKey = normalizeDepartmentKey(queryDepartment);
     }
@@ -321,9 +381,69 @@ async function listExistingEmployees(req, res) {
       .sort({ updatedAt: -1 })
       .lean();
 
+    // Get sign-off request status for each record (including accepted/rejected)
+    const recordIds = records.map((r) => r._id);
+    const signOffRequests = await SignOffRequest.find({
+      payrollRecord: { $in: recordIds },
+    })
+      .select("payrollRecord status targetDepartment remark requestedBy")
+      .lean();
+
+    // Create a map of payroll record ID to sign-off request
+    const signOffMap = {};
+    signOffRequests.forEach((req) => {
+      signOffMap[req.payrollRecord.toString()] = {
+        status: req.status,
+        targetDepartment: req.targetDepartment,
+        remark: req.remark,
+        requestedBy: req.requestedBy,
+      };
+    });
+
+    // Add sign-off status to each record
+    // For HODs: show pending if targeted to their department, or show all statuses if they requested it
+    // For Admins: show all sign-off statuses
+    const { id: userId } = req.user;
+    const recordsWithSignOff = records.map((record) => {
+      const signOffInfo = signOffMap[record._id.toString()];
+      let signoffStatus = null;
+      
+      if (signOffInfo) {
+        if (role === "HOD" || role === "DataFiller") {
+          // Show pending if targeted to their department (so they can accept/reject)
+          if (
+            userDepartment &&
+            signOffInfo.targetDepartment &&
+            signOffInfo.targetDepartment.toString() === userDepartment.toString()
+          ) {
+            signoffStatus = signOffInfo.status;
+          }
+          // Also show all statuses (pending, accepted, rejected) if they were the requester
+          // This ensures they can see the status of their sign-off requests
+          else if (
+            signOffInfo.requestedBy &&
+            signOffInfo.requestedBy.toString() === userId.toString()
+          ) {
+            signoffStatus = signOffInfo.status;
+          }
+        } else {
+          // For Admins, show all sign-off statuses
+          signoffStatus = signOffInfo.status;
+        }
+      }
+
+      return {
+        ...record,
+        signoffStatus,
+        signoffTargetDepartment: signOffInfo?.targetDepartment || null,
+        signoffRemark: signOffInfo?.remark || null,
+        signoffRequestedBy: signOffInfo?.requestedBy || null,
+      };
+    });
+
     return res.status(200).json({
       success: true,
-      data: records,
+      data: recordsWithSignOff,
     });
   } catch (error) {
     return res.status(500).json({
@@ -439,16 +559,33 @@ async function updateExistingEmployee(req, res) {
       });
     }
 
-    if (
-      role === "HOD" &&
-      record.department &&
-      userDepartment &&
-      record.department.toString() !== userDepartment.toString()
-    ) {
-      return res.status(403).json({
-        success: false,
-        message: "You can only edit entries from your department.",
-      });
+    // Check if HOD can edit: either from their department OR they requested sign-off that was accepted
+    if (role === "HOD") {
+      const canEditOwnDepartment =
+        record.department &&
+        userDepartment &&
+        record.department.toString() === userDepartment.toString();
+
+      // Check if user is the original requester of an accepted sign-off
+      let canEditAsRequester = false;
+      if (!canEditOwnDepartment) {
+        const acceptedSignOff = await SignOffRequest.findOne({
+          payrollRecord: id,
+          status: "accepted",
+          requestedBy: userId,
+        }).lean();
+
+        if (acceptedSignOff) {
+          canEditAsRequester = true;
+        }
+      }
+
+      if (!canEditOwnDepartment && !canEditAsRequester) {
+        return res.status(403).json({
+          success: false,
+          message: "You can only edit entries from your department or entries you requested sign-off for.",
+        });
+      }
     }
 
     let departmentMeta = null;
@@ -474,6 +611,13 @@ async function updateExistingEmployee(req, res) {
     const updates = normalizeDates({
       ...pickEditableFields(req.body),
       updatedBy: userId,
+    });
+
+    // Remove undefined values to prevent overwriting with undefined
+    Object.keys(updates).forEach((key) => {
+      if (updates[key] === undefined) {
+        delete updates[key];
+      }
     });
 
     validatePercentageAllocation({ ...record.toObject(), ...updates });
@@ -520,16 +664,33 @@ async function deleteExistingEmployee(req, res) {
       });
     }
 
-    if (
-      role === "HOD" &&
-      record.department &&
-      userDepartment &&
-      record.department.toString() !== userDepartment.toString()
-    ) {
-      return res.status(403).json({
-        success: false,
-        message: "You can only delete entries from your department.",
-      });
+    // Check if HOD can delete: either from their department OR they requested sign-off that was accepted
+    if (role === "HOD") {
+      const canDeleteOwnDepartment =
+        record.department &&
+        userDepartment &&
+        record.department.toString() === userDepartment.toString();
+
+      // Check if user is the original requester of an accepted sign-off
+      let canDeleteAsRequester = false;
+      if (!canDeleteOwnDepartment) {
+        const acceptedSignOff = await SignOffRequest.findOne({
+          payrollRecord: id,
+          status: "accepted",
+          requestedBy: userId,
+        }).lean();
+
+        if (acceptedSignOff) {
+          canDeleteAsRequester = true;
+        }
+      }
+
+      if (!canDeleteOwnDepartment && !canDeleteAsRequester) {
+        return res.status(403).json({
+          success: false,
+          message: "You can only delete entries from your department or entries you requested sign-off for.",
+        });
+      }
     }
 
     await record.deleteOne();
@@ -655,6 +816,343 @@ async function uploadExistingEmployeesSheet(req, res) {
   }
 }
 
+// Mapping from Source Department names (as they appear in the sheet) to Department names in DB
+const SOURCE_DEPARTMENT_TO_DB_DEPARTMENT = {
+  Management: "Management",
+  Sales: "Sales",
+  "Pre-Sales": "Pre-Sales",
+  "Sales - Intensive": "Sales - Intensive",
+  "Content Marketing": "Content Marketing",
+  "Placement - Corporate Relations": "Placement - Corporate Relations",
+  Technology: "Technology",
+  "Student Success - Academy": "Student Success - Academy",
+  "Student Success - Intensive": "Student Success - Intensive",
+  "Placement Success Manager": "Placement Success Manager",
+  "Query Resolution": "Query Resolution",
+  "NIAT - Academics": "NIAT - Academics",
+  "Video House": "Video House",
+  PRE: "PRE",
+  "Content - DS&ML": "Content - DS&ML",
+  "University Partnership": "University Partnership",
+  "Talent Acquisition": "Talent Acquisition",
+  Product: "Product",
+  "Business Ops": "Business Ops",
+  "Placement - Content": "Placement - Content",
+  "NIAT Masterclass": "NIAT Masterclass",
+  "NIAT - Robotics": "NIAT - Robotics",
+  "Content - DS&Algo": "Content - DS&Algo",
+  "Student Success - NIAT": "Student Success - NIAT",
+  "Human Resource": "Human Resource",
+  "NIAT - Program Ops": "NIAT - Program Ops",
+  Abroad: "Abroad",
+  "Founders Office": "Founders Office",
+  "Product Design": "Product Design",
+  "Graphic Design": "Graphic Design",
+  "10xIIT": "10xIIT",
+  "NxtWave Edge - Colleges": "NxtWave Edge - Colleges",
+  "Intensive Offline": "Intensive Offline",
+  "Assessments POD": "Assessments POD",
+  "Internal Audit": "Internal Audit",
+  Finance: "Finance",
+  "GenAI Social Media": "GenAI Social Media",
+  "AI&Beyond": "AI&Beyond",
+  "Content - MERN": "Content - MERN",
+  "HR - Admin/Facilities": "HR - Admin/Facilities",
+  Branding: "Branding",
+  "HR - Learning & Development": "HR - Learning & Development",
+  "Policy & Strategic Partnerships": "Policy & Strategic Partnerships",
+  NIFA: "NIFA",
+  "Pre-Sales - Intensive": "Pre-Sales - Intensive",
+  "NIAT - Hiring team": "NIAT - Hiring team",
+  Masterclass: "Masterclass",
+  "NxtGen LP": "NxtGen LP",
+  "Chemistry Dept": "CT", // Map Chemistry Dept to CT
+  CT: "CT", // Also map CT directly
+};
+
+/**
+ * Finds a Department document by source department name
+ * Handles various formats and mappings
+ */
+async function findDepartmentBySourceDepartmentName(sourceDeptName) {
+  if (!sourceDeptName) return null;
+
+  // Clean the source department name (remove extra spaces, trim)
+  const cleanName = sourceDeptName.trim();
+
+  // First try exact mapping
+  const dbDeptName = SOURCE_DEPARTMENT_TO_DB_DEPARTMENT[cleanName];
+  if (dbDeptName) {
+    const escaped = dbDeptName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const department = await Department.findOne({
+      $or: [
+        { name: new RegExp(`^${escaped}$`, "i") },
+        { code: new RegExp(`^${escaped}$`, "i") },
+      ],
+    }).lean();
+    if (department) return department;
+  }
+
+  // Try exact match with cleaned name
+  const escaped = cleanName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  let department = await Department.findOne({
+    $or: [
+      { name: new RegExp(`^${escaped}$`, "i") },
+      { code: new RegExp(`^${escaped}$`, "i") },
+    ],
+  }).lean();
+  if (department) return department;
+
+  // Try partial match (contains) - more flexible
+  const partialEscaped = cleanName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  department = await Department.findOne({
+    $or: [
+      { name: new RegExp(partialEscaped, "i") },
+      { code: new RegExp(partialEscaped, "i") },
+    ],
+  }).lean();
+  if (department) return department;
+
+  // Try to extract department name if it contains parentheses
+  const parenMatch = cleanName.match(/^(.+?)\s*\(/);
+  if (parenMatch) {
+    const extractedName = parenMatch[1].trim();
+    const extractedEscaped = extractedName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    department = await Department.findOne({
+      $or: [
+        { name: new RegExp(`^${extractedEscaped}$`, "i") },
+        { name: new RegExp(extractedEscaped, "i") },
+        { code: new RegExp(`^${extractedEscaped}$`, "i") },
+        { code: new RegExp(extractedEscaped, "i") },
+      ],
+    }).lean();
+    if (department) return department;
+  }
+
+  // Try to extract code from parentheses
+  const codeMatch = cleanName.match(/\(([^)]+)\)/);
+  if (codeMatch) {
+    const extractedCode = codeMatch[1].trim();
+    const codeEscaped = extractedCode.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    department = await Department.findOne({
+      $or: [
+        { code: new RegExp(`^${codeEscaped}$`, "i") },
+        { code: new RegExp(codeEscaped, "i") },
+        { name: new RegExp(`^${codeEscaped}$`, "i") },
+      ],
+    }).lean();
+    if (department) return department;
+  }
+
+  // Try removing common suffixes like "Dept", "Department", etc.
+  const nameWithoutSuffix = cleanName
+    .replace(/\s+Dept\.?$/i, "")
+    .replace(/\s+Department\.?$/i, "")
+    .trim();
+  if (nameWithoutSuffix !== cleanName) {
+    const suffixEscaped = nameWithoutSuffix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    department = await Department.findOne({
+      $or: [
+        { name: new RegExp(`^${suffixEscaped}$`, "i") },
+        { name: new RegExp(suffixEscaped, "i") },
+        { code: new RegExp(`^${suffixEscaped}$`, "i") },
+      ],
+    }).lean();
+    if (department) return department;
+  }
+
+  // Final fallback: try to find any department that contains the key word(s)
+  const words = cleanName
+    .replace(/\s+Dept\.?$/i, "")
+    .replace(/\s+Department\.?$/i, "")
+    .split(/\s+/)
+    .filter((w) => w.length > 2);
+
+  if (words.length > 0) {
+    const firstWord = words[0];
+    const wordEscaped = firstWord.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    department = await Department.findOne({
+      $or: [
+        { name: new RegExp(wordEscaped, "i") },
+        { code: new RegExp(wordEscaped, "i") },
+      ],
+    }).lean();
+    if (department) return department;
+  }
+
+  return null;
+}
+
+/**
+ * Request sign-off for an existing employee payroll record
+ * Creates a sign-off request targeting the source department's HOD
+ */
+async function requestSignOff(req, res) {
+  try {
+    const { id: userId } = req.user;
+    const { id } = req.params;
+
+    const record = await ExistingEmployeePayroll.findById(id);
+    if (!record) {
+      return res.status(404).json({
+        success: false,
+        message: "Existing employee record not found.",
+      });
+    }
+
+    if (!record.sourceDepartment) {
+      return res.status(400).json({
+        success: false,
+        message: "Source Department is required to request sign-off.",
+      });
+    }
+
+    // Check if there's already a pending sign-off request for this record
+    const existingRequest = await SignOffRequest.findOne({
+      payrollRecord: id,
+      status: "pending",
+    });
+
+    if (existingRequest) {
+      return res.status(400).json({
+        success: false,
+        message: "A pending sign-off request already exists for this record.",
+      });
+    }
+
+    // Find the target department based on source department name
+    const targetDepartment = await findDepartmentBySourceDepartmentName(
+      record.sourceDepartment
+    );
+
+    if (!targetDepartment) {
+      // Debug: Log available departments for troubleshooting
+      const allDepartments = await Department.find({})
+        .select("name code")
+        .lean();
+      console.error(
+        `[SignOff] Could not find department for Source Department: "${record.sourceDepartment}"`
+      );
+      console.error(
+        `[SignOff] Available departments:`,
+        allDepartments.map((d) => `${d.name} (${d.code || "no code"})`)
+      );
+
+      return res.status(400).json({
+        success: false,
+        message: `Could not find department for Source Department: ${record.sourceDepartment}. Please ensure the Source Department matches an existing department in the system.`,
+      });
+    }
+
+    // Create sign-off request
+    const signOffRequest = await SignOffRequest.create({
+      payrollRecord: id,
+      status: "pending",
+      targetDepartment: targetDepartment._id,
+      requestedBy: userId,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Sign-off request sent successfully.",
+      data: signOffRequest,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to request sign-off.",
+    });
+  }
+}
+
+/**
+ * HOD decides on a sign-off request (accept or reject)
+ * The id parameter is the payroll record ID (to match frontend expectations)
+ */
+async function decideSignOff(req, res) {
+  try {
+    const { id: userId, department: userDepartment } = req.user;
+    const { id: payrollRecordId } = req.params;
+    const { decision, remark } = req.body;
+
+    if (!decision || !["accepted", "rejected"].includes(decision)) {
+      return res.status(400).json({
+        success: false,
+        message: "Decision must be 'accepted' or 'rejected'.",
+      });
+    }
+
+    if (decision === "rejected" && !remark?.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Remark is required when rejecting a sign-off request.",
+      });
+    }
+
+    // Find the pending sign-off request for this payroll record
+    const signOffRequest = await SignOffRequest.findOne({
+      payrollRecord: payrollRecordId,
+      status: "pending",
+    }).populate("payrollRecord");
+
+    if (!signOffRequest) {
+      return res.status(404).json({
+        success: false,
+        message: "Pending sign-off request not found for this record.",
+      });
+    }
+
+    // Verify this HOD is authorized to decide on this sign-off
+    if (
+      !signOffRequest.targetDepartment ||
+      signOffRequest.targetDepartment.toString() !== userDepartment?.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not authorized to decide on this sign-off request.",
+      });
+    }
+
+    // Update sign-off request
+    signOffRequest.status = decision;
+    signOffRequest.decidedBy = userId;
+    signOffRequest.remark = decision === "rejected" ? remark?.trim() || "" : "";
+
+    await signOffRequest.save();
+
+    // If accepted, update the payroll record's department to the HOD's department
+    if (decision === "accepted" && signOffRequest.payrollRecord) {
+      const payrollRecord = await ExistingEmployeePayroll.findById(
+        payrollRecordId
+      );
+
+      if (payrollRecord) {
+        payrollRecord.department = userDepartment;
+        const hodDepartment = await Department.findById(userDepartment).lean();
+        if (hodDepartment) {
+          payrollRecord.departmentKey = normalizeDepartmentKey(
+            hodDepartment.code || hodDepartment.name
+          );
+          payrollRecord.departmentLabel =
+            hodDepartment.name || hodDepartment.code || "";
+        }
+        await payrollRecord.save();
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Sign-off request ${decision} successfully.`,
+      data: signOffRequest,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to process sign-off decision.",
+    });
+  }
+}
+
 module.exports = {
   listExistingEmployees,
   exportExistingEmployees,
@@ -662,6 +1160,8 @@ module.exports = {
   updateExistingEmployee,
   deleteExistingEmployee,
   uploadExistingEmployeesSheet,
+  requestSignOff,
+  decideSignOff,
 };
 
 

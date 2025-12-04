@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+﻿const mongoose = require("mongoose");
 
 const { Schema } = mongoose;
 
@@ -46,6 +46,7 @@ const ExistingEmployeePayrollSchema = new Schema(
     niatBatch4: stringField,
     others: stringField,
     common: stringField,
+    amount: stringField,
     createdBy: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -73,5 +74,3 @@ const ExistingEmployeePayroll = mongoose.model(
 );
 
 module.exports = { ExistingEmployeePayroll };
-
-

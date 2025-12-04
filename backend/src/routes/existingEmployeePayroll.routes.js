@@ -8,6 +8,8 @@ const {
   updateExistingEmployee,
   deleteExistingEmployee,
   uploadExistingEmployeesSheet,
+  requestSignOff,
+  decideSignOff,
 } = require("../controllers/existingEmployeePayrollController");
 const { authenticate } = require("../middleware/authenticate");
 const { authorizeRole } = require("../middleware/authorize");
@@ -64,6 +66,46 @@ router.post(
   createExistingEmployee
 );
 
+router.post(
+  "/upload",
+  [authorizeRole("Admin", "HOD", "DataFiller"), upload.single("file")],
+  uploadExistingEmployeesSheet
+);
+
+// Sign-off routes must come before /:id routes to ensure proper matching
+router.post(
+  "/:id/signoff/decision",
+  [
+    authorizeRole("HOD"),
+    param("id").isString().trim(),
+    body("decision")
+      .isIn(["accepted", "rejected"])
+      .withMessage("Decision must be 'accepted' or 'rejected'."),
+    body("remark")
+      .optional()
+      .isString()
+      .trim()
+      .custom((value, { req }) => {
+        if (req.body.decision === "rejected" && !value?.trim()) {
+          throw new Error("Remark is required when rejecting.");
+        }
+        return true;
+      }),
+    validateRequest,
+  ],
+  decideSignOff
+);
+
+router.post(
+  "/:id/signoff",
+  [
+    authorizeRole("Admin", "HOD", "DataFiller"),
+    param("id").isString().trim(),
+    validateRequest,
+  ],
+  requestSignOff
+);
+
 router.put(
   "/:id",
   [
@@ -84,12 +126,6 @@ router.delete(
     validateRequest,
   ],
   deleteExistingEmployee
-);
-
-router.post(
-  "/upload",
-  [authorizeRole("Admin", "HOD", "DataFiller"), upload.single("file")],
-  uploadExistingEmployeesSheet
 );
 
 module.exports = router;
