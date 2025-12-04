@@ -127,14 +127,13 @@ export default function DashboardPage() {
   const [monthlyCosts, setMonthlyCosts] = useState([])
   const [monthlyCostsLoading, setMonthlyCostsLoading] = useState(false)
   
-  // Filter employees and contributions for HOD users
+  // Filter employees for HOD users (backend already filters contributions)
   const filteredEmployees = user?.role === 'HOD' && user?.department?.id
     ? employees.filter(emp => emp.department && (emp.department.id === user.department.id || emp.department._id === user.department.id))
     : employees
   
-  const filteredContributions = user?.role === 'HOD' && user?.department?.id
-    ? contributions.filter(contrib => contrib.department && (contrib.department.id === user.department.id || contrib.department._id === user.department.id))
-    : contributions
+  // Backend already filters contributions by department for HOD users, so use contributions directly
+  const filteredContributions = contributions
 
   useEffect(() => {
     let isCancelled = false

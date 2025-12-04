@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const { TARequirement } = require("../models/TARequirement");
+const { Department } = require("../models/Department");
 const {
   normalizeDepartmentKey,
   normalizeRoleName,
@@ -152,12 +153,41 @@ async function listTARequirements(req, res) {
 
     const filter = {};
 
-    // For now, do not scope TA requirements by department for HOD/DataFiller.
-    // This ensures the TA sheet is always populated when underlying New
-    // Joinee data exists, avoiding confusing empty states while department
-    // mappings are being normalised. Admins can still filter by department
-    // via the query parameter.
-    if (queryDepartment && queryDepartment !== "all") {
+    // For HOD/DataFiller users, filter TA Requirements to only show those
+    // aggregated from their own department's New Joinee entries
+    if (role === "HOD" || role === "DataFiller") {
+      if (!userDepartment) {
+        return res.status(400).json({
+          success: false,
+          message: "Department mapping missing for current HOD.",
+        });
+      }
+
+      // Get department details to match against departmentIds, departmentKeys, and departmentLabels
+      const department = await Department.findById(userDepartment)
+        .select("name code")
+        .lean();
+
+      if (!department) {
+        return res.status(404).json({
+          success: false,
+          message: "Assigned department not found for the current HOD.",
+        });
+      }
+
+      // Filter TA Requirements where the HOD's department is in the departmentIds array
+      // or matches departmentKeys/departmentLabels
+      const departmentIdString = userDepartment.toString();
+      const departmentKey = normalizeDepartmentKey(department.code || department.name);
+      const departmentLabel = department.name;
+
+      filter.$or = [
+        { departmentIds: { $in: [new mongoose.Types.ObjectId(userDepartment)] } },
+        { departmentKeys: { $in: [departmentKey] } },
+        { departmentLabels: { $in: [departmentLabel] } },
+      ];
+    } else if (queryDepartment && queryDepartment !== "all") {
+      // Admin filtering by query parameter
       const normalizedDepartment = normalizeDepartmentKey(queryDepartment);
       if (normalizedDepartment) {
         filter.departmentKeys = normalizedDepartment;
@@ -167,6 +197,8 @@ async function listTARequirements(req, res) {
     let data = await TARequirement.find(filter).sort({ roleName: 1 }).lean();
 
     // If there are no TA records yet, rebuild everything from New Joinees
+    // Note: syncAllTARequirements aggregates all departments, but the filter
+    // will still restrict what HODs see
     if (data.length === 0) {
       const rebuilt = await syncAllTARequirements();
       if (rebuilt.length > 0) {
@@ -236,7 +268,7 @@ async function createTARequirement(req, res) {
 async function updateTARequirement(req, res) {
   try {
     const { id } = req.params;
-    const { id: userId } = req.user;
+    const { id: userId, role, department: userDepartment } = req.user;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
@@ -252,6 +284,48 @@ async function updateTARequirement(req, res) {
         success: false,
         message: "TA requirement entry not found.",
       });
+    }
+
+    // For HOD/DataFiller users, ensure they can only update TA Requirements
+    // that belong to their department
+    if (role === "HOD" || role === "DataFiller") {
+      if (!userDepartment) {
+        return res.status(400).json({
+          success: false,
+          message: "Department mapping missing for current HOD.",
+        });
+      }
+
+      const department = await Department.findById(userDepartment)
+        .select("name code")
+        .lean();
+
+      if (!department) {
+        return res.status(404).json({
+          success: false,
+          message: "Assigned department not found for the current HOD.",
+        });
+      }
+
+      const departmentIdString = userDepartment.toString();
+      const departmentKey = normalizeDepartmentKey(department.code || department.name);
+      const departmentLabel = department.name;
+
+      // Check if the TA Requirement belongs to the HOD's department
+      const belongsToDepartment =
+        (record.departmentIds &&
+          record.departmentIds.some(
+            (id) => id.toString() === departmentIdString
+          )) ||
+        (record.departmentKeys && record.departmentKeys.includes(departmentKey)) ||
+        (record.departmentLabels && record.departmentLabels.includes(departmentLabel));
+
+      if (!belongsToDepartment) {
+        return res.status(403).json({
+          success: false,
+          message: "You can only update TA requirements from your department.",
+        });
+      }
     }
 
     const payload = buildPayload({
@@ -278,6 +352,7 @@ async function updateTARequirement(req, res) {
 async function deleteTARequirement(req, res) {
   try {
     const { id } = req.params;
+    const { role, department: userDepartment } = req.user;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
@@ -293,6 +368,48 @@ async function deleteTARequirement(req, res) {
         success: false,
         message: "TA requirement entry not found.",
       });
+    }
+
+    // For HOD/DataFiller users, ensure they can only delete TA Requirements
+    // that belong to their department
+    if (role === "HOD" || role === "DataFiller") {
+      if (!userDepartment) {
+        return res.status(400).json({
+          success: false,
+          message: "Department mapping missing for current HOD.",
+        });
+      }
+
+      const department = await Department.findById(userDepartment)
+        .select("name code")
+        .lean();
+
+      if (!department) {
+        return res.status(404).json({
+          success: false,
+          message: "Assigned department not found for the current HOD.",
+        });
+      }
+
+      const departmentIdString = userDepartment.toString();
+      const departmentKey = normalizeDepartmentKey(department.code || department.name);
+      const departmentLabel = department.name;
+
+      // Check if the TA Requirement belongs to the HOD's department
+      const belongsToDepartment =
+        (record.departmentIds &&
+          record.departmentIds.some(
+            (id) => id.toString() === departmentIdString
+          )) ||
+        (record.departmentKeys && record.departmentKeys.includes(departmentKey)) ||
+        (record.departmentLabels && record.departmentLabels.includes(departmentLabel));
+
+      if (!belongsToDepartment) {
+        return res.status(403).json({
+          success: false,
+          message: "You can only delete TA requirements from your department.",
+        });
+      }
     }
 
     await record.deleteOne();
@@ -342,10 +459,40 @@ async function exportTARequirementSheet(req, res) {
 
     const filter = {};
 
-    // Export uses the same relaxed scoping as listTARequirements:
-    // no department-based restriction for HOD/DataFiller, optional
-    // department filter for Admin via query parameter.
-    if (queryDepartment && queryDepartment !== "all") {
+    // For HOD/DataFiller users, filter TA Requirements to only show those
+    // aggregated from their own department's New Joinee entries
+    if (role === "HOD" || role === "DataFiller") {
+      if (!userDepartment) {
+        return res.status(400).json({
+          success: false,
+          message: "Department mapping missing for current HOD.",
+        });
+      }
+
+      // Get department details to match against departmentIds, departmentKeys, and departmentLabels
+      const department = await Department.findById(userDepartment)
+        .select("name code")
+        .lean();
+
+      if (!department) {
+        return res.status(404).json({
+          success: false,
+          message: "Assigned department not found for the current HOD.",
+        });
+      }
+
+      // Filter TA Requirements where the HOD's department is in the departmentIds array
+      // or matches departmentKeys/departmentLabels
+      const departmentKey = normalizeDepartmentKey(department.code || department.name);
+      const departmentLabel = department.name;
+
+      filter.$or = [
+        { departmentIds: { $in: [new mongoose.Types.ObjectId(userDepartment)] } },
+        { departmentKeys: { $in: [departmentKey] } },
+        { departmentLabels: { $in: [departmentLabel] } },
+      ];
+    } else if (queryDepartment && queryDepartment !== "all") {
+      // Admin filtering by query parameter
       const normalizedDepartment = normalizeDepartmentKey(queryDepartment);
       if (normalizedDepartment) {
         filter.departmentKeys = normalizedDepartment;

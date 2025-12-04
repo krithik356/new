@@ -14,6 +14,7 @@ const newJoineePayrollRoutes = require("./routes/newJoineePayroll.routes");
 const taRequirementRoutes = require("./routes/taRequirement.routes");
 const existingEmployeePayrollRoutes = require("./routes/existingEmployeePayroll.routes");
 const nonPayrollRoutes = require("./routes/nonPayroll.routes");
+const monthlySalaryRoutes = require("./routes/monthlySalary.routes");
 
 const { connectDB, disconnectDB } = require("./config/db");
 const { notFound, errorHandler } = require("./middleware/errorHandler");
@@ -96,6 +97,7 @@ app.use("/api/payroll/new-joinees", newJoineePayrollRoutes);
 app.use("/api/payroll/ta-requirements", taRequirementRoutes);
 app.use("/api/payroll/existing-employees", existingEmployeePayrollRoutes);
 app.use("/api/non-payroll", nonPayrollRoutes);
+app.use("/api/monthly-salaries", monthlySalaryRoutes);
 
 // 404 handler
 app.use(notFound);

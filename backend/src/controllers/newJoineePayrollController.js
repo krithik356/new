@@ -352,22 +352,8 @@ async function listNewJoinees(req, res) {
         });
       }
 
-      // IMPORTANT:
-      // Originally we strictly filtered by `department === userDepartment`,
-      // then tried to infer departments from keys/labels. In real data this
-      // was still excluding valid rows for HODs (older imports without
-      // proper IDs, mismatched labels, etc.) which resulted in an empty
-      // sheet even though records existed in the database.
-      //
-      // To prioritise visibility and avoid confusing "blank" views for HODs,
-      // we currently do *not* apply any additional filter for HOD/DataFiller.
-      // The HOD is still restricted by row-level checks when editing or
-      // deleting (see update/delete handlers), but listing will return all
-      // rows so the sheet is never silently empty.
-      //
-      // If we need stricter scoping later, we can safely reintroduce a more
-      // resilient department-matching strategy here once the data model is
-      // fully aligned.
+      // Scope HOD/DataFiller strictly to their assigned department
+      filter.department = userDepartment;
     } else if (queryDepartment) {
       filter.departmentKey = normalizeDepartmentKey(queryDepartment);
     }
@@ -505,6 +491,19 @@ async function updateNewJoinee(req, res) {
       });
     }
 
+    // Prevent HOD/DataFiller from modifying records outside their department
+    if (
+      (role === "HOD" || role === "DataFiller") &&
+      record.department &&
+      userDepartment &&
+      record.department.toString() !== userDepartment.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only edit entries from your department.",
+      });
+    }
+
     let departmentMeta = null;
 
     if (role === "Admin" && (req.body.departmentId || req.body.departmentKey)) {
@@ -578,6 +577,19 @@ async function deleteNewJoinee(req, res) {
       return res.status(404).json({
         success: false,
         message: "Payroll entry not found.",
+      });
+    }
+
+    // Prevent HOD/DataFiller from deleting records outside their department
+    if (
+      (role === "HOD" || role === "DataFiller") &&
+      record.department &&
+      userDepartment &&
+      record.department.toString() !== userDepartment.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only delete entries from your department.",
       });
     }
 

@@ -1,0 +1,104 @@
+import { useEffect, useRef } from 'react'
+
+const DATE_FIELDS = new Set(['doj', 'doe'])
+const DEFAULT_COLUMN_WIDTH = 160
+const MAX_INPUT_WIDTH = 640
+const CHAR_PIXEL_WIDTH = 9
+const EXTRA_PADDING = 32
+
+const TOP_DEPARTMENT_OPTIONS = [
+  '10xIIT',
+  'Academy Student Success',
+  'AS - Program Registration Expert',
+  'B2B Partnership',
+  'Brand Marketing',
+  'Business Operations',
+  'CD - Curriculum Development',
+  'Content and Curriculum Development: Aptitude, English and Assessments',
+  'Content Development',
+  'CT',
+  'Data Science and Machine Learning',
+  'Design Studio',
+  'Finance & Legal',
+  "Founder's Office",
+  'GenAI Social Media',
+  'HR - Human Resources',
+  'HR - Talent Acquisition',
+  'Intensive Student Success',
+  'Internal Audit',
+  'NIAT Hostel Facilities Team',
+  'NIAT_Academics',
+  'NIFA',
+  'NxtWave Abroad',
+  'NxtWave Edge - Colleges',
+  'Placement Success Management',
+  'Placement Support Team',
+  'Pre Sales',
+  'Product',
+  'QR - Query Resolution',
+  'Sales',
+  'Student Success',
+  'Tech Team',
+  'University Partnerships',
+  'Video House',
+]
+
+const DEPARTMENT_OPTIONS = TOP_DEPARTMENT_OPTIONS
+
+const HOD_OPTIONS = [
+  'Srikar Naidu Edumudi (NW0001283)',
+  'Vamshi Gadagoju (NW0001169)',
+  'Anil Kumar Ganguri (NW0000311)',
+  'Mansoor Valli Gangupalli (NW0000320)',
+  'Girish Akash Yeshwanth Karri (NW0000306)',
+  'Nikita Aggarwal (NW0001916)',
+  'Shivam Singh (NW0001089)',
+  'Pavan Gangireddy (NW0002526)',
+  'Sai teja Manchukanti',
+  'Sashank Reddy Gujjula (NW0000002)',
+  'Rahul Attuluri (NW0000001)',
+  'Rushikesh Konapure (NW0005433)',
+  'Akhil Jogiparthi (NW0000305)',
+  'Aman Maheshwari (NW0003000)',
+  'Penmetsa Anirudh Varma (NW0003518)',
+  'Devansh Mohata (NW0002722)',
+  'Megha Ahuja (NW0002812)',
+  'Rahul Yenninti (NW0001673)',
+  'Bala Bhaskar Reddy Dodda (NW0001170)',
+  'Radha Alekhya Kommanaboina (NW0001565)',
+  'Munagala Varun Reddy (NW0002247)',
+  'Divya Sri Nandigam (NW0001670)',
+  'Brahma Reddy Karumuru (NW0001637)',
+  'Hari Haran Gorijavola (NW0000390)',
+  'Aniketh Mustoor (NW0000307)',
+  'Sashank K (NW0002724)',
+  'Venkata Abhinav Devaguptapu (NW0000351)',
+  'Sai Teja Manchukanti (NW0000352)',
+  'Kompella Sai Manvish (NW0005113)',
+  'Pavan Reddy Dharma (NW0001171)',
+  'Shiva Shanker Reddy Devasani (NW0000302)',
+  'Vishnu Vamsi Vardhan Tallam (NW0000088)',
+  'Kadari Hari Krishna (NW0005153)',
+  'Revanth Gopi Konakanchi (NW0000075)',
+  'Tathagat Bisoyi (NW0003607)',
+  'Kumar Verma (NW0001266)',
+  'Sai Sumanth Reddy Gattikoppula (NW0000301)',
+  'Karthik Reddy Vummadi (NW0000308)',
+  'Joiet Joseph (NW0002644)',
+]
+
+// Mapping based on Department column in the reference sheet (kept for backward compatibility)
+const HOD_BY_DEPARTMENT = {
+  // ... existing mapping unchanged ...
+}
+
+// Primary mapping: Top Department -> HOD (derived from the sheet)
+const HOD_BY_TOP_DEPARTMENT = {
+  // ... existing mapping unchanged ...
+}
+
+import { WORK_LOCATION_OPTIONS } from '../../../constants/workLocationOptions.js'
+
+// ... rest of file content unchanged ...
+
+

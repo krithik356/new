@@ -203,6 +203,15 @@ export const apiClient = {
 
     return { success: true, filename }
   },
+
+  getMonthlySalaries: (token, { month, year, departmentId } = {}) => {
+    const params = new URLSearchParams()
+    if (month) params.append('month', month)
+    if (year) params.append('year', year)
+    if (departmentId) params.append('departmentId', departmentId)
+    const query = params.toString() ? `?${params.toString()}` : ''
+    return request(`/api/monthly-salaries${query}`, { token })
+  },
 }
 
 export { request }
