@@ -144,6 +144,7 @@ export default function ExistingEmployeeTable({
                       const isTypeField = column.key === 'type'
                       const isEmployeeTypeField =
                         column.key === 'employeeType'
+                      const isDesignationField = column.key === 'designation'
                       const isAmountField = column.key === 'amount'
                       const isPercentageField =
                         column.key === 'academy' ||
@@ -315,6 +316,26 @@ export default function ExistingEmployeeTable({
                               >
                                 <option value="">Select employee type</option>
                                 {employeeTypeOptions.map((option) => (
+                                  <option key={option} value={option}>
+                                    {option}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : isDesignationField ? (
+                              <select
+                                value={value}
+                                onChange={(event) =>
+                                  onFieldChange(
+                                    row._id,
+                                    column.key,
+                                    event.target.value
+                                  )
+                                }
+                                style={buildInputStyle(column, value, false)}
+                                className="rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+                              >
+                                <option value="">Select designation</option>
+                                {designationOptions.map((option) => (
                                   <option key={option} value={option}>
                                     {option}
                                   </option>
