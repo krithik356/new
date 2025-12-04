@@ -107,6 +107,18 @@ export const ExistingEmployeePayrollAPI = {
 
     return payload
   },
-}
 
+  requestSignOff: (token, id) =>
+    request(`/api/payroll/existing-employees/${id}/signoff`, {
+      method: 'POST',
+      token,
+    }),
+
+  decideSignOff: (token, id, decision, remark) =>
+    request(`/api/payroll/existing-employees/${id}/signoff/decision`, {
+      method: 'POST',
+      body: { decision, remark },
+      token,
+    }),
+}
 
