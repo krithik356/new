@@ -426,6 +426,9 @@ export default function ExistingEmployeeTable({
                                 className="rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
                               />
                             )
+                          ) : isMonthField ? (
+                            // Display month in "Jan-26" format, not full date/time
+                            renderValue(value)
                           ) : (
                             renderValue(value)
                           )}

@@ -1144,6 +1144,21 @@ const createRowId = () =>
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2)
 
+// Helper function to extract month-year from date (e.g., "2026-02-01" -> "Feb-26")
+const extractMonthYear = (dateValue) => {
+  if (!dateValue) return null
+  try {
+    const date = new Date(dateValue)
+    if (Number.isNaN(date.getTime())) return null
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    const month = monthNames[date.getMonth()]
+    const year = date.getFullYear().toString().slice(-2)
+    return `${month}-${year}`
+  } catch {
+    return null
+  }
+}
+
 const normalizeRow = (record) => {
   const row = {
     _id: record?._id ?? `temp-${createRowId()}`,
@@ -1154,6 +1169,26 @@ const normalizeRow = (record) => {
   COLUMN_DEFINITIONS.forEach(({ key }) => {
     if (key === 'doj' || key === 'doe') {
       row[key] = getDateValue(record?.[key])
+    } else if (key === 'month') {
+      // Ensure month is displayed as "Jan-26" format, not full date/time
+      const monthValue = record?.[key]
+      if (monthValue === null || monthValue === undefined) {
+        row[key] = ''
+      } else if (typeof monthValue === 'object') {
+        // If it's a date object, extract month-year
+        const extracted = extractMonthYear(monthValue)
+        row[key] = extracted || ''
+      } else {
+        // If it's already a string like "Jan-26", use it as is
+        const strValue = String(monthValue).trim()
+        // If it looks like a date string, extract month-year
+        if (strValue.includes('GMT') || strValue.includes('T') || /^\d{4}-\d{2}-\d{2}/.test(strValue)) {
+          const extracted = extractMonthYear(strValue)
+          row[key] = extracted || strValue
+        } else {
+          row[key] = strValue
+        }
+      }
     } else if (key === 'amount') {
       // Ensure amount is always a string (for number input compatibility)
       const amountValue = record?.[key]
@@ -1188,6 +1223,14 @@ const normalizeRow = (record) => {
   row.signoffTargetDepartment = record?.signoffTargetDepartment ?? null
   row.signoffRemark = record?.signoffRemark ?? null
   row.signoffRequestedBy = record?.signoffRequestedBy ?? null
+
+  // Auto-set Type to "Exit" if DOE month matches the month column
+  if (row.doe && row.month) {
+    const doeMonth = extractMonthYear(row.doe)
+    if (doeMonth && row.month && doeMonth === row.month) {
+      row.type = 'Exit'
+    }
+  }
 
   return row
 }
@@ -1395,6 +1438,23 @@ export default function ExistingEmployeesSheet() {
       } else {
         normalizedValue = String(value).trim()
       }
+    } else if (field === 'month') {
+      // Normalize month to "Jan-26" format
+      if (typeof value === 'object' && value !== null) {
+        const extracted = extractMonthYear(value)
+        normalizedValue = extracted || ''
+      } else if (value === null || value === undefined) {
+        normalizedValue = ''
+      } else {
+        const strValue = String(value).trim()
+        // If it looks like a date string, extract month-year
+        if (strValue.includes('GMT') || strValue.includes('T') || /^\d{4}-\d{2}-\d{2}/.test(strValue)) {
+          const extracted = extractMonthYear(strValue)
+          normalizedValue = extracted || strValue
+        } else {
+          normalizedValue = strValue
+        }
+      }
     } else if (typeof value === 'object' && value !== null) {
       normalizedValue = ''
     }
@@ -1414,6 +1474,23 @@ export default function ExistingEmployeesSheet() {
               nextRow.sourceHod = mappedHod
             } else {
               nextRow.beneficiaryHod = mappedHod
+            }
+          }
+        }
+
+        // Auto-set Type to "Exit" if DOE month matches the month column
+        if (field === 'doe' || field === 'month') {
+          const doeDate = field === 'doe' ? value : nextRow.doe
+          const monthValue = field === 'month' ? normalizedValue : nextRow.month
+          
+          if (doeDate && monthValue) {
+            const doeMonth = extractMonthYear(doeDate)
+            // Compare month values (e.g., "Feb-26" === "Feb-26")
+            if (doeMonth && monthValue && doeMonth === monthValue) {
+              nextRow.type = 'Exit'
+            } else if (nextRow.type === 'Exit' && doeMonth !== monthValue) {
+              // If Type was "Exit" but months don't match anymore, reset to "Existing"
+              nextRow.type = 'Existing'
             }
           }
         }

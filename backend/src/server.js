@@ -29,14 +29,29 @@ app.set("etag", false);
 // ✅ CORS — Allow ALL origins
 app.use(
   cors({
-    origin: (origin, callback) => callback(null, true), // allow everything
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, Postman, or serverless functions)
+      if (!origin) return callback(null, true);
+      // Allow all origins
+      callback(null, true);
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
     exposedHeaders: ["Authorization"],
-    optionsSuccessStatus: 204,
+    optionsSuccessStatus: 200, // Some clients expect 200 instead of 204
+    preflightContinue: false,
   })
 );
+
+// Handle preflight requests explicitly
+app.options("*", (req, res) => {
+  res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.sendStatus(200);
+});
 
 // Health check
 app.get("/api/health", (req, res) => {
