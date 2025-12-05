@@ -1189,6 +1189,7 @@ export default function ExistingEmployeesSheet() {
   const [actionToast, setActionToast] = useState(null)
   const isMountedRef = useRef(true)
   const fileInputRef = useRef(null)
+  const savedRowSnapshotsRef = useRef({}) // Track saved state of each row
 
   const isAdmin = role === 'Admin'
 
@@ -1229,8 +1230,16 @@ export default function ExistingEmployeesSheet() {
       if (!isMountedRef.current) {
         return
       }
-      setRows((response.data ?? []).map((item) => normalizeRow(item)))
+      const normalizedRows = (response.data ?? []).map((item) => normalizeRow(item))
+      setRows(normalizedRows)
       setRowErrors({})
+      // Store snapshots of loaded rows as their saved state
+      savedRowSnapshotsRef.current = {}
+      normalizedRows.forEach((row) => {
+        if (!row._id.startsWith('temp-')) {
+          savedRowSnapshotsRef.current[row._id] = JSON.stringify(row)
+        }
+      })
     } catch (err) {
       if (!isMountedRef.current) {
         return
@@ -1340,9 +1349,10 @@ export default function ExistingEmployeesSheet() {
         ? await ExistingEmployeePayrollAPI.create(token, payload)
         : await ExistingEmployeePayrollAPI.update(token, row._id, payload)
 
+      const updatedRow = normalizeRow(response.data)
       setRows((prev) =>
         prev.map((existing) =>
-          existing._id === row._id ? normalizeRow(response.data) : existing
+          existing._id === row._id ? updatedRow : existing
         )
       )
       setRowErrors((prev) => {
@@ -1353,6 +1363,8 @@ export default function ExistingEmployeesSheet() {
         delete next[row._id]
         return next
       })
+      // Update saved snapshot after successful save
+      savedRowSnapshotsRef.current[updatedRow._id] = JSON.stringify(updatedRow)
       setActionToast(
         row._id.startsWith('temp-')
           ? 'Row created successfully.'
@@ -1380,6 +1392,10 @@ export default function ExistingEmployeesSheet() {
         delete next[row._id]
         return next
       })
+      // Remove snapshot for temp rows (no need, but clean up just in case)
+      if (savedRowSnapshotsRef.current[row._id]) {
+        delete savedRowSnapshotsRef.current[row._id]
+      }
       return
     }
 
@@ -1392,6 +1408,10 @@ export default function ExistingEmployeesSheet() {
         delete next[row._id]
         return next
       })
+      // Remove snapshot when row is deleted
+      if (savedRowSnapshotsRef.current[row._id]) {
+        delete savedRowSnapshotsRef.current[row._id]
+      }
       setActionToast('Row deleted successfully.')
     } catch (err) {
       console.error('Failed to delete entry', err)
@@ -1403,9 +1423,27 @@ export default function ExistingEmployeesSheet() {
     }
   }
 
+  // Check if a row has unsaved changes
+  const hasUnsavedChanges = (row) => {
+    if (row._id.startsWith('temp-')) {
+      return true // New rows are always considered unsaved
+    }
+    const savedSnapshot = savedRowSnapshotsRef.current[row._id]
+    if (!savedSnapshot) {
+      return true // No saved snapshot means it's unsaved
+    }
+    const currentSnapshot = JSON.stringify(row)
+    return currentSnapshot !== savedSnapshot
+  }
+
   const handleRequestSignOff = async (row) => {
     if (!row?._id || row._id.startsWith('temp-')) {
       setError('Please save the row before requesting sign-off.')
+      return
+    }
+
+    if (hasUnsavedChanges(row)) {
+      setError('Please update and save the row before requesting sign-off to ensure you are signing off the correct entry.')
       return
     }
 
@@ -1414,13 +1452,27 @@ export default function ExistingEmployeesSheet() {
       return
     }
 
+    // Prevent duplicate sign-off requests
+    if (row.signoffStatus === 'pending') {
+      setError('A sign-off request is already pending for this entry.')
+      return
+    }
+
+    if (row.signoffStatus === 'accepted' || row.signoffStatus === 'rejected') {
+      setError('Sign-off has already been completed for this entry. Cannot request again.')
+      return
+    }
+
     try {
       const response = await ExistingEmployeePayrollAPI.requestSignOff(token, row._id)
+      const updatedRow = normalizeRow(response.data)
       setRows((prev) =>
         prev.map((existing) =>
-          existing._id === row._id ? normalizeRow(response.data) : existing
+          existing._id === row._id ? updatedRow : existing
         )
       )
+      // Update snapshot after sign-off request (row data might have changed)
+      savedRowSnapshotsRef.current[updatedRow._id] = JSON.stringify(updatedRow)
       setActionToast('Sign-off request sent successfully.')
     } catch (err) {
       console.error('Failed to request sign-off', err)
@@ -1442,11 +1494,14 @@ export default function ExistingEmployeesSheet() {
         decision,
         remark
       )
+      const updatedRow = normalizeRow(response.data)
       setRows((prev) =>
         prev.map((existing) =>
-          existing._id === row._id ? normalizeRow(response.data) : existing
+          existing._id === row._id ? updatedRow : existing
         )
       )
+      // Update snapshot after sign-off decision
+      savedRowSnapshotsRef.current[updatedRow._id] = JSON.stringify(updatedRow)
       setActionToast(
         decision === 'accepted'
           ? 'Sign-off request accepted successfully.'
@@ -1659,6 +1714,7 @@ export default function ExistingEmployeesSheet() {
         rows={searchableRows}
         loading={loading}
         role={role}
+        userId={user?.id || user?._id}
         isEditMode={editMode}
         savingId={savingId}
         rowErrors={rowErrors}
@@ -1667,6 +1723,7 @@ export default function ExistingEmployeesSheet() {
         onDeleteRow={handleDeleteRow}
         onRequestSignOff={handleRequestSignOff}
         onSignOffDecision={handleSignOffDecision}
+        hasUnsavedChanges={hasUnsavedChanges}
         monthOptions={MONTH_OPTIONS}
         departmentOptions={DEPARTMENT_OPTIONS}
         topDepartmentOptions={TOP_DEPARTMENT_OPTIONS}

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { WORK_LOCATION_OPTIONS } from '../../../constants/workLocationOptions.js'
 
 const DATE_FIELDS = new Set(['doj', 'doe'])
@@ -55,6 +55,7 @@ export default function ExistingEmployeeTable({
   loading,
   savingId,
   role,
+  userId,
   isEditMode = false,
   onFieldChange,
   onSaveRow,
@@ -62,6 +63,7 @@ export default function ExistingEmployeeTable({
   onRequestSignOff,
   onSignOffDecision,
   rowErrors = {},
+  hasUnsavedChanges,
   monthOptions = [],
   departmentOptions = [],
   topDepartmentOptions = [],
@@ -76,10 +78,112 @@ export default function ExistingEmployeeTable({
   const showEditControls = isEditMode && canEdit
   const [rejectRemark, setRejectRemark] = useState({})
   const [showRejectModal, setShowRejectModal] = useState({})
+  const scrollContainerRef = useRef(null)
+  const scrollIntervalRef = useRef(null)
+  const [showLeftArrow, setShowLeftArrow] = useState(false)
+  const [showRightArrow, setShowRightArrow] = useState(false)
+
+  const checkScrollButtons = () => {
+    const container = scrollContainerRef.current
+    if (!container) return
+    setShowLeftArrow(container.scrollLeft > 0)
+    setShowRightArrow(
+      container.scrollLeft < container.scrollWidth - container.clientWidth - 1
+    )
+  }
+
+  useEffect(() => {
+    checkScrollButtons()
+    const container = scrollContainerRef.current
+    if (!container) return
+    container.addEventListener('scroll', checkScrollButtons)
+    const resizeObserver = new ResizeObserver(checkScrollButtons)
+    resizeObserver.observe(container)
+    return () => {
+      container.removeEventListener('scroll', checkScrollButtons)
+      resizeObserver.disconnect()
+    }
+  }, [rows])
+
+  const startScrolling = (direction) => {
+    if (scrollIntervalRef.current) return
+    const container = scrollContainerRef.current
+    if (!container) return
+    const scrollAmount = 10
+    scrollIntervalRef.current = setInterval(() => {
+      if (direction === 'left') {
+        container.scrollLeft = Math.max(0, container.scrollLeft - scrollAmount)
+      } else {
+        container.scrollLeft = Math.min(
+          container.scrollWidth - container.clientWidth,
+          container.scrollLeft + scrollAmount
+        )
+      }
+      checkScrollButtons()
+    }, 16)
+  }
+
+  const stopScrolling = () => {
+    if (scrollIntervalRef.current) {
+      clearInterval(scrollIntervalRef.current)
+      scrollIntervalRef.current = null
+    }
+  }
 
   return (
-    <div className="overflow-hidden rounded-3xl border border-slate-800/70 bg-slate-950/80 shadow-2xl shadow-black/30">
-      <div className="overflow-x-auto">
+    <div className="relative overflow-hidden rounded-3xl border border-slate-800/70 bg-slate-950/80 shadow-2xl shadow-black/30">
+      {/* Left Arrow */}
+      {showLeftArrow && (
+        <button
+          type="button"
+          onMouseEnter={() => startScrolling('left')}
+          onMouseLeave={stopScrolling}
+          className="absolute left-0 top-0 z-20 flex h-full w-12 items-center justify-center bg-gradient-to-r from-slate-950/90 to-transparent text-slate-400 transition hover:text-slate-200"
+          aria-label="Scroll left"
+        >
+          <svg
+            className="h-6 w-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 19l-7-7 7-7"
+            />
+          </svg>
+        </button>
+      )}
+      {/* Right Arrow */}
+      {showRightArrow && (
+        <button
+          type="button"
+          onMouseEnter={() => startScrolling('right')}
+          onMouseLeave={stopScrolling}
+          className="absolute right-0 top-0 z-20 flex h-full w-12 items-center justify-center bg-gradient-to-l from-slate-950/90 to-transparent text-slate-400 transition hover:text-slate-200"
+          aria-label="Scroll right"
+        >
+          <svg
+            className="h-6 w-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 5l7 7-7 7"
+            />
+          </svg>
+        </button>
+      )}
+      <div
+        ref={scrollContainerRef}
+        className="overflow-x-auto scrollbar-hide"
+      >
         <table className="min-w-[1200px] table-auto border-collapse">
           <thead className="sticky top-0 z-10 bg-slate-950/95 backdrop-blur">
             <tr>
@@ -93,9 +197,14 @@ export default function ExistingEmployeeTable({
                 </th>
               ))}
               {showEditControls && (
-                <th className="w-40 px-4 py-3 text-right text-[0.65rem] uppercase tracking-[0.5em] text-slate-500">
-                  Actions
-                </th>
+                <>
+                  <th className="w-40 px-4 py-3 text-right text-[0.65rem] uppercase tracking-[0.5em] text-slate-500">
+                    Actions
+                  </th>
+                  <th className="w-48 px-4 py-3 text-left text-[0.65rem] uppercase tracking-[0.5em] text-slate-500">
+                    Status
+                  </th>
+                </>
               )}
             </tr>
           </thead>
@@ -103,7 +212,7 @@ export default function ExistingEmployeeTable({
             {loading ? (
               <tr>
                 <td
-                  colSpan={columns.length + (showEditControls ? 1 : 0)}
+                  colSpan={columns.length + (showEditControls ? 2 : 0)}
                   className="px-4 py-16 text-center text-sm text-slate-400"
                 >
                   Loading existing employees sheet…
@@ -112,7 +221,7 @@ export default function ExistingEmployeeTable({
             ) : rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={columns.length + (showEditControls ? 1 : 0)}
+                  colSpan={columns.length + (showEditControls ? 2 : 0)}
                   className="px-4 py-16 text-center text-sm text-slate-400"
                 >
                   No entries yet. Use "Add Row" to begin planning.
@@ -396,118 +505,154 @@ export default function ExistingEmployeeTable({
                       )
                     })}
                     {showEditControls && (
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex flex-col gap-2 text-xs text-slate-400">
-                          {/* Show Accept/Reject buttons for pending sign-offs (HOD view) */}
-                          {role === 'HOD' && row.signoffStatus === 'pending' ? (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => onSignOffDecision(row, 'accepted')}
-                                className="rounded-xl border border-green-500/40 bg-green-500/20 px-3 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-green-200 transition hover:bg-green-500/30"
-                              >
-                                Accept
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setShowRejectModal({ ...showRejectModal, [row._id]: true })}
-                                className="rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-red-300 transition hover:bg-red-500/20"
-                              >
-                                Reject
-                              </button>
-                              {showRejectModal[row._id] && (
-                                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                                  <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 shadow-xl max-w-md w-full mx-4">
-                                    <h3 className="mb-4 text-sm font-semibold text-slate-200">Rejection Remark</h3>
-                                    <textarea
-                                      value={rejectRemark[row._id] || ''}
-                                      onChange={(e) =>
-                                        setRejectRemark({ ...rejectRemark, [row._id]: e.target.value })
-                                      }
-                                      placeholder="Enter reason for rejection..."
-                                      className="mb-4 w-full rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none"
-                                      rows={4}
-                                    />
-                                    <div className="flex gap-2">
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          if (rejectRemark[row._id]?.trim()) {
-                                            onSignOffDecision(row, 'rejected', rejectRemark[row._id])
-                                            setShowRejectModal({ ...showRejectModal, [row._id]: false })
-                                            setRejectRemark({ ...rejectRemark, [row._id]: '' })
-                                          }
-                                        }}
-                                        disabled={!rejectRemark[row._id]?.trim()}
-                                        className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-red-300 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
-                                      >
-                                        Submit
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setShowRejectModal({ ...showRejectModal, [row._id]: false })
-                                          setRejectRemark({ ...rejectRemark, [row._id]: '' })
-                                        }}
-                                        className="rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-300 transition hover:bg-slate-800"
-                                      >
-                                        Cancel
-                                      </button>
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-                            </>
-                          ) : (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => onSaveRow(row)}
-                                disabled={savingId === row._id}
-                                className="rounded-xl border border-emerald-500/40 bg-emerald-500/20 px-3 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-emerald-200 transition hover:bg-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-60"
-                              >
-                                {row._id.startsWith('temp-') ? 'Save' : 'Update'}
-                              </button>
-                              {/* Hide Sign Off button if status is 'accepted' or 'pending' */}
-                              {row.signoffStatus !== 'pending' && row.signoffStatus !== 'accepted' && (
-                                <button
-                                  type="button"
-                                  onClick={() => onRequestSignOff(row)}
-                                  disabled={!row.sourceDepartment?.trim() || row._id.startsWith('temp-')}
-                                  className="rounded-xl border border-blue-500/40 bg-blue-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-blue-200 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                  Sign Off
-                                </button>
-                              )}
-                              {canDelete && row._id && !row._id.startsWith('temp-') ? (
-                                <button
-                                  type="button"
-                                  onClick={() => onDeleteRow(row)}
-                                  className="rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-red-300 transition hover:bg-red-500/20"
-                                >
-                                  Delete
-                                </button>
-                              ) : null}
-                            </>
-                          )}
-                          {/* Show sign-off status and remarks */}
-                          {row.signoffStatus && (
-                            <div className="mt-2 rounded-lg border border-slate-800 bg-slate-900/40 p-2 text-[0.65rem]">
+                      <>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex flex-col gap-2 text-xs text-slate-400">
+                            {/* Check if current user is the one who requested sign-off */}
+                            {(() => {
+                              const isSignOffRequester = userId && row.signoffRequestedBy && 
+                                String(row.signoffRequestedBy) === String(userId)
+                              
+                              // Show Accept/Reject buttons only for target HOD (not the requester) when status is pending
+                              const showAcceptReject = role === 'HOD' && 
+                                row.signoffStatus === 'pending' && 
+                                !isSignOffRequester
+                              
+                              if (showAcceptReject) {
+                                return (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => onSignOffDecision(row, 'accepted')}
+                                      className="rounded-xl border border-green-500/40 bg-green-500/20 px-3 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-green-200 transition hover:bg-green-500/30"
+                                    >
+                                      Accept
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setShowRejectModal({ ...showRejectModal, [row._id]: true })}
+                                      className="rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-red-300 transition hover:bg-red-500/20"
+                                    >
+                                      Reject
+                                    </button>
+                                    {showRejectModal[row._id] && (
+                                      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                                        <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 shadow-xl max-w-md w-full mx-4">
+                                          <h3 className="mb-4 text-sm font-semibold text-slate-200">Rejection Remark</h3>
+                                          <textarea
+                                            value={rejectRemark[row._id] || ''}
+                                            onChange={(e) =>
+                                              setRejectRemark({ ...rejectRemark, [row._id]: e.target.value })
+                                            }
+                                            placeholder="Enter reason for rejection..."
+                                            className="mb-4 w-full rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none"
+                                            rows={4}
+                                          />
+                                          <div className="flex gap-2">
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                if (rejectRemark[row._id]?.trim()) {
+                                                  onSignOffDecision(row, 'rejected', rejectRemark[row._id])
+                                                  setShowRejectModal({ ...showRejectModal, [row._id]: false })
+                                                  setRejectRemark({ ...rejectRemark, [row._id]: '' })
+                                                }
+                                              }}
+                                              disabled={!rejectRemark[row._id]?.trim()}
+                                              className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-red-300 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                                            >
+                                              Submit
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setShowRejectModal({ ...showRejectModal, [row._id]: false })
+                                                setRejectRemark({ ...rejectRemark, [row._id]: '' })
+                                              }}
+                                              className="rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-300 transition hover:bg-slate-800"
+                                            >
+                                              Cancel
+                                            </button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </>
+                                )
+                              }
+                              
+                              // For sender (requester) or when not pending, show Update, Sign Off, Delete
+                              return (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => onSaveRow(row)}
+                                    disabled={savingId === row._id}
+                                    className="rounded-xl border border-emerald-500/40 bg-emerald-500/20 px-3 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-emerald-200 transition hover:bg-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                                  >
+                                    {row._id.startsWith('temp-') ? 'Save' : 'Update'}
+                                  </button>
+                                  {/* Show Sign Off button - always visible but disabled if already signed off or has unsaved changes */}
+                                  <button
+                                    type="button"
+                                    onClick={() => onRequestSignOff(row)}
+                                    disabled={
+                                      !row.sourceDepartment?.trim() ||
+                                      row._id.startsWith('temp-') ||
+                                      (hasUnsavedChanges && hasUnsavedChanges(row)) ||
+                                      row.signoffStatus === 'pending' ||
+                                      row.signoffStatus === 'accepted' ||
+                                      row.signoffStatus === 'rejected'
+                                    }
+                                    title={
+                                      row.signoffStatus === 'pending'
+                                        ? 'Sign-off request is already pending'
+                                        : row.signoffStatus === 'accepted' || row.signoffStatus === 'rejected'
+                                        ? 'Sign-off has already been completed. Cannot request again.'
+                                        : hasUnsavedChanges && hasUnsavedChanges(row)
+                                        ? 'Please update and save the row before requesting sign-off'
+                                        : !row.sourceDepartment?.trim()
+                                        ? 'Source Department is required'
+                                        : ''
+                                    }
+                                    className="rounded-xl border border-blue-500/40 bg-blue-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-blue-200 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                                  >
+                                    Sign Off
+                                  </button>
+                                  {canDelete && row._id && !row._id.startsWith('temp-') ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => onDeleteRow(row)}
+                                      className="rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-red-300 transition hover:bg-red-500/20"
+                                    >
+                                      Delete
+                                    </button>
+                                  ) : null}
+                                </>
+                              )
+                            })()}
+                            {rowError ? (
+                              <p className="text-[0.65rem] uppercase tracking-[0.3em] text-red-400">
+                                {rowError}
+                              </p>
+                            ) : null}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 align-top">
+                          {row.signoffStatus ? (
+                            <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-2 text-[0.65rem]">
                               <p className="uppercase tracking-[0.2em] text-slate-400">
-                                Status: <span className={row.signoffStatus === 'accepted' ? 'text-green-400' : row.signoffStatus === 'rejected' ? 'text-red-400' : 'text-yellow-400'}>{row.signoffStatus}</span>
+                                <span className={row.signoffStatus === 'accepted' ? 'text-green-400' : row.signoffStatus === 'rejected' ? 'text-red-400' : 'text-yellow-400'}>{row.signoffStatus}</span>
                               </p>
                               {row.signoffRemark && (
                                 <p className="mt-1 text-slate-300">Remark: {row.signoffRemark}</p>
                               )}
                             </div>
+                          ) : (
+                            <span className="text-slate-500">—</span>
                           )}
-                          {rowError ? (
-                            <p className="text-[0.65rem] uppercase tracking-[0.3em] text-red-400">
-                              {rowError}
-                            </p>
-                          ) : null}
-                        </div>
-                      </td>
+                        </td>
+                      </>
                     )}
                   </tr>
                 )

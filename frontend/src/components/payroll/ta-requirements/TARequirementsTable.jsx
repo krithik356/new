@@ -1,3 +1,5 @@
+import { useRef, useEffect, useState } from 'react'
+
 const DEFAULT_COLUMN_WIDTH = 160
 const MAX_INPUT_WIDTH = 640
 const CHAR_PIXEL_WIDTH = 9
@@ -74,10 +76,109 @@ export default function TARequirementsTable({
   const canEdit = role === 'Admin' || role === 'HOD'
   const canDelete = role === 'Admin' || role === 'HOD'
   const showEditControls = isEditMode && canEdit
+  const scrollContainerRef = useRef(null)
+  const scrollIntervalRef = useRef(null)
+  const [showLeftArrow, setShowLeftArrow] = useState(false)
+  const [showRightArrow, setShowRightArrow] = useState(false)
+
+  const checkScrollButtons = () => {
+    const container = scrollContainerRef.current
+    if (!container) return
+    setShowLeftArrow(container.scrollLeft > 0)
+    setShowRightArrow(
+      container.scrollLeft < container.scrollWidth - container.clientWidth - 1
+    )
+  }
+
+  useEffect(() => {
+    checkScrollButtons()
+    const container = scrollContainerRef.current
+    if (!container) return
+    container.addEventListener('scroll', checkScrollButtons)
+    const resizeObserver = new ResizeObserver(checkScrollButtons)
+    resizeObserver.observe(container)
+    return () => {
+      container.removeEventListener('scroll', checkScrollButtons)
+      resizeObserver.disconnect()
+    }
+  }, [rows])
+
+  const startScrolling = (direction) => {
+    if (scrollIntervalRef.current) return
+    const container = scrollContainerRef.current
+    if (!container) return
+    const scrollAmount = 10
+    scrollIntervalRef.current = setInterval(() => {
+      if (direction === 'left') {
+        container.scrollLeft = Math.max(0, container.scrollLeft - scrollAmount)
+      } else {
+        container.scrollLeft = Math.min(
+          container.scrollWidth - container.clientWidth,
+          container.scrollLeft + scrollAmount
+        )
+      }
+      checkScrollButtons()
+    }, 16)
+  }
+
+  const stopScrolling = () => {
+    if (scrollIntervalRef.current) {
+      clearInterval(scrollIntervalRef.current)
+      scrollIntervalRef.current = null
+    }
+  }
 
   return (
-    <div className="overflow-hidden rounded-3xl border border-slate-800/70 bg-slate-950/80 shadow-2xl shadow-black/30">
-      <div className="overflow-x-auto">
+    <div className="relative overflow-hidden rounded-3xl border border-slate-800/70 bg-slate-950/80 shadow-2xl shadow-black/30">
+      {/* Left Arrow */}
+      {showLeftArrow && (
+        <button
+          type="button"
+          onMouseEnter={() => startScrolling('left')}
+          onMouseLeave={stopScrolling}
+          className="absolute left-0 top-0 z-20 flex h-full w-12 items-center justify-center bg-gradient-to-r from-slate-950/90 to-transparent text-slate-400 transition hover:text-slate-200"
+          aria-label="Scroll left"
+        >
+          <svg
+            className="h-6 w-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 19l-7-7 7-7"
+            />
+          </svg>
+        </button>
+      )}
+      {/* Right Arrow */}
+      {showRightArrow && (
+        <button
+          type="button"
+          onMouseEnter={() => startScrolling('right')}
+          onMouseLeave={stopScrolling}
+          className="absolute right-0 top-0 z-20 flex h-full w-12 items-center justify-center bg-gradient-to-l from-slate-950/90 to-transparent text-slate-400 transition hover:text-slate-200"
+          aria-label="Scroll right"
+        >
+          <svg
+            className="h-6 w-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 5l7 7-7 7"
+            />
+          </svg>
+        </button>
+      )}
+      <div ref={scrollContainerRef} className="overflow-x-auto scrollbar-hide">
         <table className="min-w-[1200px] table-auto border-collapse">
           <thead className="sticky top-0 z-10 bg-slate-950/95 backdrop-blur">
             <tr>

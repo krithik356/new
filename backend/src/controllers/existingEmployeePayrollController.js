@@ -468,7 +468,45 @@ async function exportExistingEmployees(req, res) {
           message: "Department mapping missing for current HOD.",
         });
       }
-      filter.department = userDepartment;
+
+      const { id: userId } = req.user;
+
+      // HOD sees:
+      // 1. Their own department's records
+      // 2. Pending sign-offs targeted to their department (to accept/reject)
+      // 3. Records they requested sign-off for (to see status and edit/delete)
+      const pendingSignOffs = await SignOffRequest.find({
+        targetDepartment: userDepartment,
+        status: "pending",
+      })
+        .select("payrollRecord")
+        .lean();
+
+      const requestedSignOffs = await SignOffRequest.find({
+        requestedBy: userId,
+      })
+        .select("payrollRecord")
+        .lean();
+
+      const pendingPayrollIds = pendingSignOffs.map((s) => s.payrollRecord);
+      const requestedPayrollIds = requestedSignOffs.map((s) => s.payrollRecord);
+
+      // Combine all IDs that should be visible
+      const allVisibleIds = [
+        ...new Set([
+          ...pendingPayrollIds.map((id) => id.toString()),
+          ...requestedPayrollIds.map((id) => id.toString()),
+        ]),
+      ];
+
+      if (allVisibleIds.length > 0) {
+        filter.$or = [
+          { department: userDepartment },
+          { _id: { $in: allVisibleIds.map((id) => new mongoose.Types.ObjectId(id)) } },
+        ];
+      } else {
+        filter.department = userDepartment;
+      }
     } else if (queryDepartment && queryDepartment !== "all") {
       filter.departmentKey = normalizeDepartmentKey(queryDepartment);
     }
@@ -1007,16 +1045,22 @@ async function requestSignOff(req, res) {
       });
     }
 
-    // Check if there's already a pending sign-off request for this record
+    // Check if there's already a sign-off request for this record (pending or completed)
     const existingRequest = await SignOffRequest.findOne({
       payrollRecord: id,
-      status: "pending",
-    });
+    }).sort({ createdAt: -1 }); // Get the most recent one
 
     if (existingRequest) {
+      if (existingRequest.status === "pending") {
+        return res.status(400).json({
+          success: false,
+          message: "A pending sign-off request already exists for this record.",
+        });
+      }
+      // Prevent duplicate sign-off requests even if previous one was completed
       return res.status(400).json({
         success: false,
-        message: "A pending sign-off request already exists for this record.",
+        message: "A sign-off request has already been processed for this record. Cannot request again.",
       });
     }
 
