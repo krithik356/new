@@ -157,9 +157,11 @@ async function listTARequirements(req, res) {
     // aggregated from their own department's New Joinee entries
     if (role === "HOD" || role === "DataFiller") {
       if (!userDepartment) {
-        return res.status(400).json({
-          success: false,
-          message: "Department mapping missing for current HOD.",
+        // For HOD without department mapping, return empty data instead of 400
+        return res.status(200).json({
+          success: true,
+          data: [],
+          message: "Department mapping missing for current HOD. No data to display.",
         });
       }
 

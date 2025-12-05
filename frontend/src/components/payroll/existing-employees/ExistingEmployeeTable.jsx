@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
 import { WORK_LOCATION_OPTIONS } from '../../../constants/workLocationOptions.js'
 
 const DATE_FIELDS = new Set(['doj', 'doe'])
@@ -11,10 +11,14 @@ const renderValue = (value) => {
   if (value === null || value === undefined) {
     return '—'
   }
+  // Handle objects - convert to string or return empty
+  if (typeof value === 'object') {
+    return '—'
+  }
   if (typeof value === 'number') {
     return Number.isNaN(value) ? '—' : value
   }
-  const normalized = value.toString().trim()
+  const normalized = String(value).trim()
   return normalized.length > 0 ? normalized : '—'
 }
 
@@ -56,6 +60,7 @@ export default function ExistingEmployeeTable({
   savingId,
   role,
   userId,
+  userDepartment,
   isEditMode = false,
   onFieldChange,
   onSaveRow,
@@ -78,110 +83,10 @@ export default function ExistingEmployeeTable({
   const showEditControls = isEditMode && canEdit
   const [rejectRemark, setRejectRemark] = useState({})
   const [showRejectModal, setShowRejectModal] = useState({})
-  const scrollContainerRef = useRef(null)
-  const scrollIntervalRef = useRef(null)
-  const [showLeftArrow, setShowLeftArrow] = useState(false)
-  const [showRightArrow, setShowRightArrow] = useState(false)
-
-  const checkScrollButtons = () => {
-    const container = scrollContainerRef.current
-    if (!container) return
-    setShowLeftArrow(container.scrollLeft > 0)
-    setShowRightArrow(
-      container.scrollLeft < container.scrollWidth - container.clientWidth - 1
-    )
-  }
-
-  useEffect(() => {
-    checkScrollButtons()
-    const container = scrollContainerRef.current
-    if (!container) return
-    container.addEventListener('scroll', checkScrollButtons)
-    const resizeObserver = new ResizeObserver(checkScrollButtons)
-    resizeObserver.observe(container)
-    return () => {
-      container.removeEventListener('scroll', checkScrollButtons)
-      resizeObserver.disconnect()
-    }
-  }, [rows])
-
-  const startScrolling = (direction) => {
-    if (scrollIntervalRef.current) return
-    const container = scrollContainerRef.current
-    if (!container) return
-    const scrollAmount = 10
-    scrollIntervalRef.current = setInterval(() => {
-      if (direction === 'left') {
-        container.scrollLeft = Math.max(0, container.scrollLeft - scrollAmount)
-      } else {
-        container.scrollLeft = Math.min(
-          container.scrollWidth - container.clientWidth,
-          container.scrollLeft + scrollAmount
-        )
-      }
-      checkScrollButtons()
-    }, 16)
-  }
-
-  const stopScrolling = () => {
-    if (scrollIntervalRef.current) {
-      clearInterval(scrollIntervalRef.current)
-      scrollIntervalRef.current = null
-    }
-  }
 
   return (
     <div className="relative overflow-hidden rounded-3xl border border-slate-800/70 bg-slate-950/80 shadow-2xl shadow-black/30">
-      {/* Left Arrow */}
-      {showLeftArrow && (
-        <button
-          type="button"
-          onMouseEnter={() => startScrolling('left')}
-          onMouseLeave={stopScrolling}
-          className="absolute left-0 top-0 z-20 flex h-full w-12 items-center justify-center bg-gradient-to-r from-slate-950/90 to-transparent text-slate-400 transition hover:text-slate-200"
-          aria-label="Scroll left"
-        >
-          <svg
-            className="h-6 w-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 19l-7-7 7-7"
-            />
-          </svg>
-        </button>
-      )}
-      {/* Right Arrow */}
-      {showRightArrow && (
-        <button
-          type="button"
-          onMouseEnter={() => startScrolling('right')}
-          onMouseLeave={stopScrolling}
-          className="absolute right-0 top-0 z-20 flex h-full w-12 items-center justify-center bg-gradient-to-l from-slate-950/90 to-transparent text-slate-400 transition hover:text-slate-200"
-          aria-label="Scroll right"
-        >
-          <svg
-            className="h-6 w-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 5l7 7-7 7"
-            />
-          </svg>
-        </button>
-      )}
       <div
-        ref={scrollContainerRef}
         className="overflow-x-auto scrollbar-hide"
       >
         <table className="min-w-[1200px] table-auto border-collapse">
@@ -237,7 +142,30 @@ export default function ExistingEmployeeTable({
                   >
                     {columns.map((column) => {
                       const isDateField = DATE_FIELDS.has(column.key)
-                      const value = row[column.key] ?? ''
+                      // Normalize value to ensure it's never an object
+                      let value = row[column.key]
+                      
+                      // Handle null/undefined
+                      if (value === null || value === undefined) {
+                        value = ''
+                      }
+                      // Handle objects - convert to empty string to prevent "[object Object]"
+                      else if (typeof value === 'object') {
+                        // Try to extract a meaningful value if it's an object with common properties
+                        if (value && typeof value.toString === 'function' && value.toString() !== '[object Object]') {
+                          value = value.toString()
+                        } else {
+                          value = ''
+                        }
+                      }
+                      // Handle numbers - convert to string
+                      else if (typeof value === 'number') {
+                        value = String(value)
+                      }
+                      // Handle strings - trim whitespace
+                      else {
+                        value = String(value).trim()
+                      }
 
                       const isLocationField = column.key === 'location'
                       const isMonthField = column.key === 'month'
@@ -454,7 +382,7 @@ export default function ExistingEmployeeTable({
                               <input
                                 type="number"
                                 inputMode="decimal"
-                                value={value}
+                                value={typeof value === 'string' || typeof value === 'number' ? value : ''}
                                 onChange={(event) =>
                                   onFieldChange(
                                     row._id,
@@ -593,32 +521,58 @@ export default function ExistingEmployeeTable({
                                     {row._id.startsWith('temp-') ? 'Save' : 'Update'}
                                   </button>
                                   {/* Show Sign Off button - always visible but disabled if already signed off or has unsaved changes */}
-                                  <button
-                                    type="button"
-                                    onClick={() => onRequestSignOff(row)}
-                                    disabled={
+                                  {(() => {
+                                    // Check if source department matches user's department
+                                    const normalizeDeptName = (name) => 
+                                      (name || '').toLowerCase().replace(/\s+(dept|department)\.?$/i, '').trim()
+                                    
+                                    const userDeptName = userDepartment?.name || userDepartment?.code || ''
+                                    const sourceDeptName = row.sourceDepartment?.trim() || ''
+                                    const isOwnDepartment = role === 'HOD' && 
+                                      userDeptName && 
+                                      sourceDeptName &&
+                                      normalizeDeptName(userDeptName) === normalizeDeptName(sourceDeptName)
+                                    
+                                    const isDisabled = 
                                       !row.sourceDepartment?.trim() ||
                                       row._id.startsWith('temp-') ||
                                       (hasUnsavedChanges && hasUnsavedChanges(row)) ||
                                       row.signoffStatus === 'pending' ||
                                       row.signoffStatus === 'accepted' ||
-                                      row.signoffStatus === 'rejected'
+                                      row.signoffStatus === 'rejected' ||
+                                      isOwnDepartment
+                                    
+                                    const getTitle = () => {
+                                      if (isOwnDepartment) {
+                                        return 'You cannot send a sign-off request to your own department'
+                                      }
+                                      if (row.signoffStatus === 'pending') {
+                                        return 'Sign-off request is already pending'
+                                      }
+                                      if (row.signoffStatus === 'accepted' || row.signoffStatus === 'rejected') {
+                                        return 'Sign-off has already been completed. Cannot request again.'
+                                      }
+                                      if (hasUnsavedChanges && hasUnsavedChanges(row)) {
+                                        return 'Please update and save the row before requesting sign-off'
+                                      }
+                                      if (!row.sourceDepartment?.trim()) {
+                                        return 'Source Department is required'
+                                      }
+                                      return ''
                                     }
-                                    title={
-                                      row.signoffStatus === 'pending'
-                                        ? 'Sign-off request is already pending'
-                                        : row.signoffStatus === 'accepted' || row.signoffStatus === 'rejected'
-                                        ? 'Sign-off has already been completed. Cannot request again.'
-                                        : hasUnsavedChanges && hasUnsavedChanges(row)
-                                        ? 'Please update and save the row before requesting sign-off'
-                                        : !row.sourceDepartment?.trim()
-                                        ? 'Source Department is required'
-                                        : ''
-                                    }
-                                    className="rounded-xl border border-blue-500/40 bg-blue-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-blue-200 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-50"
-                                  >
-                                    Sign Off
-                                  </button>
+                                    
+                                    return (
+                                      <button
+                                        type="button"
+                                        onClick={() => onRequestSignOff(row)}
+                                        disabled={isDisabled}
+                                        title={getTitle()}
+                                        className="rounded-xl border border-blue-500/40 bg-blue-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-blue-200 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                                      >
+                                        Sign Off
+                                      </button>
+                                    )
+                                  })()}
                                   {canDelete && row._id && !row._id.startsWith('temp-') ? (
                                     <button
                                       type="button"

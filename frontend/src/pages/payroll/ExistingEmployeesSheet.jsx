@@ -21,7 +21,6 @@ const COLUMN_DEFINITIONS = [
   { key: 'beneficiaryDepartment', label: 'Beneficiary Department', width: '220px' },
   { key: 'sourceHod', label: 'Source HOD', width: '180px' },
   { key: 'beneficiaryHod', label: 'Beneficiary HOD', width: '200px' },
-  { key: 'universityDetails', label: 'University Details', width: '200px' },
   { key: 'location', label: 'Location', width: '180px' },
   { key: 'employeeType', label: 'Employee Type', width: '180px' },
   { key: 'amount', label: 'Amount', width: '140px' },
@@ -1095,7 +1094,6 @@ const buildSearchableText = (row) => {
     'beneficiaryDepartment',
     'sourceHod',
     'beneficiaryHod',
-    'location',
     'employeeType',
     'academy',
     'intensive',
@@ -1103,11 +1101,17 @@ const buildSearchableText = (row) => {
     'common',
   ]
 
-  return fieldsToIndex
+  // Build searchable text with empName first (for better matching)
+  const searchableParts = fieldsToIndex
     .map((field) => row[field])
     .filter(Boolean)
-    .join(' ')
-    .toLowerCase()
+  
+  // Put empName first for better search relevance
+  const empName = searchableParts.find(part => part === row.empName)
+  const otherParts = searchableParts.filter(part => part !== row.empName)
+  const orderedParts = empName ? [empName, ...otherParts] : otherParts
+  
+  return orderedParts.join(' ').toLowerCase()
 }
 
 const validatePercentageRow = (row) => {
@@ -1150,8 +1154,32 @@ const normalizeRow = (record) => {
   COLUMN_DEFINITIONS.forEach(({ key }) => {
     if (key === 'doj' || key === 'doe') {
       row[key] = getDateValue(record?.[key])
+    } else if (key === 'amount') {
+      // Ensure amount is always a string (for number input compatibility)
+      const amountValue = record?.[key]
+      if (amountValue === null || amountValue === undefined || amountValue === '') {
+        row[key] = ''
+      } else if (typeof amountValue === 'object') {
+        // If it's an object, default to empty string
+        console.warn(`Amount field contains object for record ${record?._id}:`, amountValue)
+        row[key] = ''
+      } else if (typeof amountValue === 'number') {
+        row[key] = String(amountValue)
+      } else {
+        // Ensure it's a valid string representation of a number
+        const strValue = String(amountValue).trim()
+        row[key] = strValue === 'null' || strValue === 'undefined' || strValue === '[object Object]' ? '' : strValue
+      }
     } else {
-      row[key] = record?.[key] ?? ''
+      const fieldValue = record?.[key]
+      // Ensure all fields are strings, not objects
+      if (fieldValue === null || fieldValue === undefined) {
+        row[key] = ''
+      } else if (typeof fieldValue === 'object') {
+        row[key] = ''
+      } else {
+        row[key] = String(fieldValue).trim()
+      }
     }
   })
 
@@ -1180,18 +1208,31 @@ export default function ExistingEmployeesSheet() {
   const [rowErrors, setRowErrors] = useState({})
   const [exporting, setExporting] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState(null)
   const [editMode, setEditMode] = useState(false)
   const [activeDepartment, setActiveDepartment] = useState(
     role === 'Admin' ? 'all' : 'hod'
   )
+  const [hodDepartments, setHodDepartments] = useState([])
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  
+  // Debounce search input to avoid excessive filtering
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search)
+    }, 300) // 300ms delay
+    
+    return () => clearTimeout(timer)
+  }, [search])
   const [actionToast, setActionToast] = useState(null)
   const isMountedRef = useRef(true)
   const fileInputRef = useRef(null)
   const savedRowSnapshotsRef = useRef({}) // Track saved state of each row
 
   const isAdmin = role === 'Admin'
+  const isHod = role === 'HOD' || role === 'DataFiller'
 
   const applyRowValidation = (row) => {
     const message = validatePercentageRow(row)
@@ -1215,6 +1256,73 @@ export default function ExistingEmployeesSheet() {
     }
   }, [])
 
+  const loadHodDepartments = useCallback(async () => {
+    if (!isHod || !token) {
+      return
+    }
+    try {
+      const response = await ExistingEmployeePayrollAPI.getHodDepartments(token)
+      console.log('HOD Departments API Response:', response)
+      
+      if (response.data && response.data.length > 0) {
+        console.log('Setting HOD departments:', response.data)
+        setHodDepartments(response.data)
+        // Set active department to first department if not already set
+        setActiveDepartment((prev) => {
+          if (prev === 'hod' && response.data[0]) {
+            return response.data[0].id
+          }
+          return prev
+        })
+      } else {
+        console.log('No departments found in API response, using fallback')
+        // If user has assigned department, use that
+        if (user?.department?.id) {
+          console.log('Using user assigned department:', user.department)
+          setHodDepartments([{
+            id: user.department.id,
+            name: user.department.name,
+            code: user.department.code,
+          }])
+          setActiveDepartment((prev) => {
+            if (prev === 'hod') {
+              return user.department.id
+            }
+            return prev
+          })
+        } else {
+          console.log('No user department found either - setting empty array')
+          setHodDepartments([])
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load HOD departments', err)
+      // If user has assigned department, use that
+      if (user?.department?.id) {
+        setHodDepartments([{
+          id: user.department.id,
+          name: user.department.name,
+          code: user.department.code,
+        }])
+        setActiveDepartment((prev) => {
+          if (prev === 'hod') {
+            return user.department.id
+          }
+          return prev
+        })
+      }
+    }
+  }, [isHod, token, user])
+
+  useEffect(() => {
+    if (!token) {
+      return
+    }
+    if (isHod) {
+      loadHodDepartments()
+    }
+  }, [loadHodDepartments, token, isHod])
+
   const loadRows = useCallback(async () => {
     if (!isMountedRef.current) {
       return
@@ -1222,10 +1330,13 @@ export default function ExistingEmployeesSheet() {
     setLoading(true)
     setError(null)
     try {
-      const params =
-        isAdmin && activeDepartment !== 'all'
-          ? { department: activeDepartment }
-          : undefined
+      let params = undefined
+      if (isAdmin && activeDepartment !== 'all') {
+        params = { department: activeDepartment }
+      } else if (isHod && activeDepartment && activeDepartment !== 'hod') {
+        // For HOD, use department ID
+        params = { department: activeDepartment }
+      }
       const response = await ExistingEmployeePayrollAPI.fetchList(token, params)
       if (!isMountedRef.current) {
         return
@@ -1256,7 +1367,7 @@ export default function ExistingEmployeesSheet() {
         setLoading(false)
       }
     }
-  }, [activeDepartment, isAdmin, token])
+  }, [activeDepartment, isAdmin, isHod, token])
 
   useEffect(() => {
     if (!token) {
@@ -1272,12 +1383,28 @@ export default function ExistingEmployeesSheet() {
   const handleFieldChange = (rowId, field, value) => {
     if (!editMode || (role !== 'Admin' && role !== 'HOD')) return
     let updatedRow = null
+    
+    // Normalize value to prevent objects
+    let normalizedValue = value
+    if (field === 'amount') {
+      // Ensure amount is always a string
+      if (typeof value === 'object' && value !== null) {
+        normalizedValue = ''
+      } else if (value === null || value === undefined) {
+        normalizedValue = ''
+      } else {
+        normalizedValue = String(value).trim()
+      }
+    } else if (typeof value === 'object' && value !== null) {
+      normalizedValue = ''
+    }
+    
     setRows((prev) =>
       prev.map((row) => {
         if (row._id !== rowId) return row
         const nextRow = {
           ...row,
-          [field]: value,
+          [field]: normalizedValue,
         }
 
         if (field === 'sourceDepartment' || field === 'beneficiaryDepartment') {
@@ -1308,7 +1435,13 @@ export default function ExistingEmployeesSheet() {
         if ((key === 'doj' || key === 'doe') && row[key] === '') {
           return
         }
-        payload[key] = row[key]
+        // Ensure amount and other fields are strings, not objects
+        const fieldValue = row[key]
+        if (typeof fieldValue === 'object' && fieldValue !== null) {
+          payload[key] = ''
+        } else {
+          payload[key] = fieldValue
+        }
       }
     })
 
@@ -1452,6 +1585,23 @@ export default function ExistingEmployeesSheet() {
       return
     }
 
+    // Prevent HOD from sending sign-off to their own department
+    // Note: This is a basic check. The backend will also validate this.
+    // We check if sourceDepartment matches user's department name
+    if (role === 'HOD' && user?.department) {
+      const userDeptName = user.department.name || user.department.code || ''
+      const sourceDeptName = row.sourceDepartment?.trim() || ''
+      
+      // Normalize for comparison (case-insensitive, remove common suffixes)
+      const normalizeDeptName = (name) => 
+        name.toLowerCase().replace(/\s+(dept|department)\.?$/i, '').trim()
+      
+      if (normalizeDeptName(userDeptName) === normalizeDeptName(sourceDeptName)) {
+        setError('You cannot send a sign-off request to your own department. Please select a different Source Department.')
+        return
+      }
+    }
+
     // Prevent duplicate sign-off requests
     if (row.signoffStatus === 'pending') {
       setError('A sign-off request is already pending for this entry.')
@@ -1539,10 +1689,12 @@ export default function ExistingEmployeesSheet() {
     }
     setExporting(true)
     try {
-      const params =
-        isAdmin && activeDepartment !== 'all'
-          ? { department: activeDepartment }
-          : undefined
+      let params = undefined
+      if (isAdmin && activeDepartment !== 'all') {
+        params = { department: activeDepartment }
+      } else if (isHod && activeDepartment && activeDepartment !== 'hod') {
+        params = { department: activeDepartment }
+      }
       await ExistingEmployeePayrollAPI.exportSheet(token, params)
     } catch (err) {
       console.error('Failed to export existing employee sheet', err)
@@ -1563,10 +1715,12 @@ export default function ExistingEmployeesSheet() {
     setUploading(true)
     setError(null)
     try {
-      const params =
-        isAdmin && activeDepartment !== 'all'
-          ? { department: activeDepartment }
-          : undefined
+      let params = undefined
+      if (isAdmin && activeDepartment !== 'all') {
+        params = { department: activeDepartment }
+      } else if (isHod && activeDepartment && activeDepartment !== 'hod') {
+        params = { department: activeDepartment }
+      }
       await ExistingEmployeePayrollAPI.uploadSheet(token, file, params)
       await loadRows()
     } catch (err) {
@@ -1600,6 +1754,38 @@ export default function ExistingEmployeesSheet() {
     event.target.value = ''
   }
 
+  const handleDeleteAll = async () => {
+    if (!token || deleting) {
+      return
+    }
+    
+    // Confirmation dialog
+    const confirmed = window.confirm(
+      'Are you sure you want to delete ALL entries from the existing employees sheet? This action cannot be undone.'
+    )
+    
+    if (!confirmed) {
+      return
+    }
+    
+    setDeleting(true)
+    setError(null)
+    try {
+      await ExistingEmployeePayrollAPI.deleteAll(token)
+      await loadRows()
+      setActionToast('All entries deleted successfully.')
+    } catch (err) {
+      console.error('Failed to delete all entries', err)
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : err?.message ?? 'Unable to delete all entries.'
+      setError(message)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   const isSalesListingMode =
     isAdmin && (mode === 'source' || mode === 'beneficiary')
 
@@ -1624,12 +1810,56 @@ export default function ExistingEmployeesSheet() {
       : rows
 
   const searchableRows = useMemo(() => {
-    if (!search.trim()) {
+    // When searching, search through ALL rows, not just visibleRows (to find all matches)
+    const rowsToSearch = debouncedSearch.trim() ? rows : visibleRows
+    
+    if (!debouncedSearch.trim()) {
       return visibleRows
     }
-    const query = search.trim().toLowerCase()
-    return visibleRows.filter((row) => buildSearchableText(row).includes(query))
-  }, [search, visibleRows])
+    const query = debouncedSearch.trim().toLowerCase()
+    // Normalize query: remove punctuation for better matching (e.g., "u." matches "u")
+    const normalizedQuery = query.replace(/[.,\-_]/g, ' ').replace(/\s+/g, ' ').trim()
+    const queryWords = normalizedQuery.split(/\s+/).filter(Boolean) // Split into words
+    
+    return rowsToSearch.filter((row) => {
+      const empName = (row.empName || '').toLowerCase()
+      // Normalize employee name similarly
+      const normalizedEmpName = empName.replace(/[.,\-_]/g, ' ').replace(/\s+/g, ' ').trim()
+      
+      // For multi-word queries (like "Dev U. Yadav"), require ALL words in employee name
+      if (queryWords.length > 1) {
+        // STRICT: All query words MUST appear in employee name
+        // This ensures "Dev U. Yadav" only matches names containing "dev", "u", AND "yadav"
+        const allWordsInName = queryWords.every(word => normalizedEmpName.includes(word))
+        if (allWordsInName) {
+          return true
+        }
+        // Also check exact query match
+        if (empName.includes(query) || normalizedEmpName.includes(normalizedQuery)) {
+          return true
+        }
+        // For multi-word queries, ONLY match employee name (don't search other fields)
+        return false
+      }
+      
+      // For single word queries, check employee name first
+      if (queryWords.length === 1) {
+        const singleWord = queryWords[0]
+        if (normalizedEmpName.includes(singleWord) || empName.includes(singleWord)) {
+          return true
+        }
+        // Also check empId for single word searches
+        const empId = (row.empId || '').toLowerCase()
+        if (empId.includes(singleWord)) {
+          return true
+        }
+        return false
+      }
+      
+      // Fallback: exact query match in name
+      return empName.includes(query)
+    })
+  }, [debouncedSearch, visibleRows, rows])
 
   const sheetDescription = useMemo(() => {
     const baseDescription = isAdmin
@@ -1654,9 +1884,12 @@ export default function ExistingEmployeesSheet() {
         onAddRow={handleAddRow}
         onGenerateSheet={handleGenerateSheet}
         onUploadSheet={handleUploadButton}
+        onDeleteAll={handleDeleteAll}
         exporting={exporting}
         uploading={uploading}
+        deleting={deleting}
         loading={loading}
+        hodDepartments={hodDepartments}
       />
 
       <input
@@ -1715,6 +1948,7 @@ export default function ExistingEmployeesSheet() {
         loading={loading}
         role={role}
         userId={user?.id || user?._id}
+        userDepartment={user?.department}
         isEditMode={editMode}
         savingId={savingId}
         rowErrors={rowErrors}

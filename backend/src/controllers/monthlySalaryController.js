@@ -34,7 +34,7 @@ async function listMonthlySalaries(req, res, next) {
 
     const employeeFilter = {};
 
-    if (departmentId && departmentId !== "all") {
+  if (departmentId && departmentId !== "all") {
       if (!mongoose.isValidObjectId(departmentId)) {
         return res.status(400).json({
           success: false,
@@ -44,9 +44,12 @@ async function listMonthlySalaries(req, res, next) {
       employeeFilter.department = departmentId;
     } else if (req.user.role === "HOD") {
       if (!req.user.department) {
-        return res.status(400).json({
-          success: false,
-          message: "You must be assigned to a department to view monthly salaries.",
+        // Gracefully return empty data if HOD has no department mapping
+        return res.json({
+          success: true,
+          data: [],
+          message:
+            "Department mapping missing for current HOD. No monthly salaries to display.",
         });
       }
       employeeFilter.department = req.user.department;

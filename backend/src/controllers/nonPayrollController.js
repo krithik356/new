@@ -187,11 +187,14 @@ function sanitizeString(value) {
   return value.toString().trim();
 }
 
-async function resolveHodDepartmentName(user) {
+async function resolveHodDepartmentName(user, { allowMissing = false } = {}) {
   if (user.role !== "HOD") {
     return null;
   }
   if (!user.department) {
+    if (allowMissing) {
+      return null;
+    }
     const error = new Error(
       "You must be assigned to a department to manage non-payroll items."
     );
@@ -435,7 +438,18 @@ async function listNonPayrollItems(req, res, next) {
   try {
     const filter = {};
     if (req.user.role === "HOD" || req.user.role === "DataFiller") {
-      const departmentName = await resolveHodDepartmentName(req.user);
+      const departmentName = await resolveHodDepartmentName(req.user, {
+        allowMissing: true,
+      });
+      // If HOD/DataFiller has no department mapping, return empty list gracefully
+      if (!departmentName) {
+        return res.status(200).json({
+          success: true,
+          data: [],
+          message:
+            "Department mapping missing for current HOD. No non-payroll items to display.",
+        });
+      }
       filter.responsibleDepartment = departmentName;
     } else if (req.query.department) {
       filter.responsibleDepartment = req.query.department;

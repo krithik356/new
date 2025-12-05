@@ -7,9 +7,11 @@ const {
   createExistingEmployee,
   updateExistingEmployee,
   deleteExistingEmployee,
+  deleteAllExistingEmployees,
   uploadExistingEmployeesSheet,
   requestSignOff,
   decideSignOff,
+  getHodDepartments,
 } = require("../controllers/existingEmployeePayrollController");
 const { authenticate } = require("../middleware/authenticate");
 const { authorizeRole } = require("../middleware/authorize");
@@ -22,6 +24,15 @@ const upload = multer({
 });
 
 router.use(authenticate);
+
+router.get(
+  "/hod-departments",
+  [
+    authorizeRole("HOD", "DataFiller"),
+    validateRequest,
+  ],
+  getHodDepartments
+);
 
 router.get(
   "/",
@@ -116,6 +127,15 @@ router.put(
     validateRequest,
   ],
   updateExistingEmployee
+);
+
+router.delete(
+  "/all",
+  [
+    authorizeRole("Admin"),
+    validateRequest,
+  ],
+  deleteAllExistingEmployees
 );
 
 router.delete(

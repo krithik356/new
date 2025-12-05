@@ -13,11 +13,20 @@ export default function ExistingEmployeeToolbar({
   onAddRow,
   onGenerateSheet,
   onUploadSheet,
+  onDeleteAll,
   loading,
   exporting,
   uploading,
+  deleting,
+  hodDepartments = [],
 }) {
   const isAdmin = role === 'Admin'
+  const isHod = role === 'HOD' || role === 'DataFiller'
+  const hasMultipleDepartments = hodDepartments.length > 1
+  
+  console.log('ExistingEmployeeToolbar - hodDepartments:', hodDepartments)
+  console.log('ExistingEmployeeToolbar - hasMultipleDepartments:', hasMultipleDepartments)
+  console.log('ExistingEmployeeToolbar - isHod:', isHod)
 
   return (
     <div className="flex flex-col gap-4 rounded-3xl border border-slate-800/70 bg-slate-950/80 px-4 py-5 shadow-2xl shadow-black/30 md:flex-row md:items-center md:justify-between">
@@ -50,9 +59,26 @@ export default function ExistingEmployeeToolbar({
               ))}
             </select>
           </label>
+        ) : isHod && hasMultipleDepartments ? (
+          <label className="flex flex-col text-xs uppercase tracking-[0.3em] text-slate-500">
+            Department
+            <select
+              value={activeDepartment}
+              onChange={(event) => onDepartmentChange(event.target.value)}
+              className="mt-1 w-full rounded-2xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-200 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+            >
+              {hodDepartments.map((dept) => (
+                <option key={dept.id} value={dept.id}>
+                  {dept.name} {dept.code ? `(${dept.code})` : ''}
+                </option>
+              ))}
+            </select>
+          </label>
         ) : (
           <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-xs uppercase tracking-[0.3em] text-emerald-200">
-            HOD Department Scope
+            {hodDepartments.length === 1 
+              ? `HOD: ${hodDepartments[0]?.name || 'Department'}`
+              : 'HOD Department Scope'}
           </div>
         )}
 
@@ -81,6 +107,16 @@ export default function ExistingEmployeeToolbar({
           >
             {uploading ? 'Uploading…' : 'Upload Sheet'}
           </button>
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={onDeleteAll}
+              disabled={loading || deleting}
+              className="inline-flex items-center justify-center rounded-2xl border border-red-400/50 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-200 transition hover:bg-red-500/20 hover:text-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {deleting ? 'Deleting…' : 'Delete All'}
+            </button>
+          )}
         </div>
       </div>
     </div>

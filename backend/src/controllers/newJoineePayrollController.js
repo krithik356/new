@@ -344,18 +344,42 @@ async function listNewJoinees(req, res) {
 
     const filter = {};
 
-    if (role === "HOD" || role === "DataFiller") {
+  if (role === "HOD" || role === "DataFiller") {
       if (!userDepartment) {
-        return res.status(400).json({
-          success: false,
-          message: "Department mapping missing for current HOD.",
+        // For HOD without department mapping, return empty data instead of 400
+        return res.status(200).json({
+          success: true,
+          data: [],
+          message: "Department mapping missing for current HOD. No data to display.",
         });
       }
 
-      // Scope HOD/DataFiller strictly to their assigned department
-      filter.department = userDepartment;
+      const department = await Department.findById(userDepartment)
+        .select("name code")
+        .lean();
+
+      if (!department) {
+        return res.status(404).json({
+          success: false,
+          message: "Assigned department not found for the current HOD.",
+        });
+      }
+
+      const departmentKey = normalizeDepartmentKey(department.code || department.name);
+      const departmentLabel = department.name;
+
+      // Match either exact department id or normalized key/label (to support older rows)
+      filter.$or = [
+        { department: userDepartment },
+        { departmentKey },
+        { departmentLabel },
+      ];
     } else if (queryDepartment) {
-      filter.departmentKey = normalizeDepartmentKey(queryDepartment);
+      const normalizedDepartment = normalizeDepartmentKey(queryDepartment);
+      filter.$or = [
+        { departmentKey: normalizedDepartment },
+        { departmentLabel: queryDepartment },
+      ];
     }
 
     const records = await NewJoineePayroll.find(filter)
@@ -391,16 +415,40 @@ async function exportNewJoineeSheet(req, res) {
 
     const filter = {};
 
-    if (role === "HOD" || role === "DataFiller") {
+  if (role === "HOD" || role === "DataFiller") {
       if (!userDepartment) {
-        return res.status(400).json({
-          success: false,
-          message: "Department mapping missing for current HOD.",
+        return res.status(200).json({
+          success: true,
+          data: [],
+          message: "Department mapping missing for current HOD. No data to display.",
         });
       }
-      filter.department = userDepartment;
+
+      const department = await Department.findById(userDepartment)
+        .select("name code")
+        .lean();
+
+      if (!department) {
+        return res.status(404).json({
+          success: false,
+          message: "Assigned department not found for the current HOD.",
+        });
+      }
+
+      const departmentKey = normalizeDepartmentKey(department.code || department.name);
+      const departmentLabel = department.name;
+
+      filter.$or = [
+        { department: userDepartment },
+        { departmentKey },
+        { departmentLabel },
+      ];
     } else if (queryDepartment && queryDepartment !== "all") {
-      filter.departmentKey = normalizeDepartmentKey(queryDepartment);
+      const normalizedDepartment = normalizeDepartmentKey(queryDepartment);
+      filter.$or = [
+        { departmentKey: normalizedDepartment },
+        { departmentLabel: queryDepartment },
+      ];
     }
 
     const records = await NewJoineePayroll.find(filter)

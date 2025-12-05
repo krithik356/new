@@ -120,5 +120,16 @@ export const ExistingEmployeePayrollAPI = {
       body: { decision, remark },
       token,
     }),
+
+  getHodDepartments: (token) =>
+    request('/api/payroll/existing-employees/hod-departments', {
+      token,
+    }),
+
+  deleteAll: (token) =>
+    request('/api/payroll/existing-employees/all', {
+      method: 'DELETE',
+      token,
+    }),
 }
 

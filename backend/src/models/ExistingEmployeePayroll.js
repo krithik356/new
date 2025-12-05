@@ -47,6 +47,10 @@ const ExistingEmployeePayrollSchema = new Schema(
     others: stringField,
     common: stringField,
     amount: stringField,
+    uploadOrder: {
+      type: Number,
+      default: 0,
+    },
     createdBy: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -66,6 +70,36 @@ const ExistingEmployeePayrollSchema = new Schema(
 ExistingEmployeePayrollSchema.index(
   { department: 1, empName: 1, doj: 1 },
   { name: "existing_employee_index" }
+);
+
+// Index for finding records by empId and month (for upload deduplication)
+ExistingEmployeePayrollSchema.index(
+  { empId: 1, month: 1 },
+  { name: "empId_month_index" }
+);
+
+// Index for search by employee name (case-insensitive search optimization)
+ExistingEmployeePayrollSchema.index(
+  { empName: 1 },
+  { name: "empName_index" }
+);
+
+// Index for sourceDepartment filtering (HOD filtering)
+ExistingEmployeePayrollSchema.index(
+  { sourceDepartment: 1 },
+  { name: "sourceDepartment_index" }
+);
+
+// Index for sorting by uploadOrder
+ExistingEmployeePayrollSchema.index(
+  { uploadOrder: 1 },
+  { name: "uploadOrder_index" }
+);
+
+// Compound index for common query patterns
+ExistingEmployeePayrollSchema.index(
+  { department: 1, uploadOrder: 1 },
+  { name: "department_uploadOrder_index" }
 );
 
 const ExistingEmployeePayroll = mongoose.model(
